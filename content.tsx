@@ -1,8 +1,6 @@
 import cssText from "data-text:~globals.css"
 import type { PlasmoCSConfig } from "plasmo"
 
-import { LoginForm } from "~components/login-form"
-
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"]
 }
@@ -40,7 +38,7 @@ export const getStyle = (): HTMLStyleElement => {
 const CSUIExample = () => {
   return (
     <div className="flex w-[400px] flex-col border-2 bg-yellow-50">
-      <LoginForm />
+      <p>helloooo!!</p>
     </div>
   )
 }
