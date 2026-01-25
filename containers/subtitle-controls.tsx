@@ -13,14 +13,32 @@ import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { useSubtitleContext } from "@/contexts/subtitle-context"
 import { parseSubtitles } from "@/lib/subs"
+import type { TColor, TParsedSubtitle } from "@/types"
 import { Captions, CloudUpload } from "lucide-react"
-import { useEffect, useRef, useState, type ChangeEventHandler } from "react"
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEventHandler,
+  type MouseEventHandler
+} from "react"
+
+import { cn } from "~lib/utils"
+
+type TSubtitles = {
+  fileName?: string
+  parsed: TParsedSubtitle[]
+}
 
 const SubtitleControls = () => {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const { state, dispatch } = useSubtitleContext()
-  const [tabs, setTabs] = useState<chrome.tabs.Tab[]>()
+  const [subtitles, setSubtitles] = useState<TSubtitles>({
+    parsed: []
+  })
+
+  const [tabs, setTabs] = useState<chrome.tabs.Tab[]>([])
 
   const handleOnClick = () => {
     if (!inputRef.current) return
@@ -45,13 +63,30 @@ const SubtitleControls = () => {
         return
       }
 
-      dispatch({
-        type: "add-subtitles",
-        parsedSubtitles: parseSubtitles(raw),
+      setSubtitles({
+        parsed: parseSubtitles(raw),
         fileName: file.name
       })
     }
     reader.readAsText(file)
+  }
+
+  const handleOnChangeVisibility = (value: boolean) => {
+    dispatch({
+      type: "update-visiblity",
+      showSubtitle: value
+    })
+  }
+
+  const handleOnChangeFontSize: MouseEventHandler<HTMLButtonElement> = (e) => {
+    const operation = e.currentTarget.getAttribute("data-op")
+
+    if (!operation || (operation !== "increase" && operation !== "decrease"))
+      return
+
+    dispatch({
+      type: operation === "increase" ? "increase-fontsize" : "decrease-fontsize"
+    })
   }
 
   const handleOnChangeBackgroundColor: ChangeEventHandler<HTMLInputElement> = (
@@ -59,33 +94,37 @@ const SubtitleControls = () => {
   ) => {
     dispatch({
       type: "update-bg-color",
-      color: e.currentTarget.value
+      color: e.currentTarget.value.toString() as TColor
     })
   }
 
   const handleOnChangeTextColor: ChangeEventHandler<HTMLInputElement> = (e) => {
     dispatch({
       type: "update-text-color",
-      color: e.currentTarget.value
+      color: e.currentTarget.value.toString() as TColor
     })
   }
 
-  // useEffect(() => {
-  //   const promise = new Promise<chrome.tabs.Tab[]>((resolve, reject) => {
-  //     chrome.tabs.query({}, (tabs) => {
-  //       if (tabs.length === 0) {
-  //         reject(new Error("No tabs!"))
-  //         return
-  //       }
+  const handleOnChangeSelectedTab = (tabId: string | undefined) => {
+    if (!tabs || !tabId) return
 
-  //       resolve(tabs)
-  //     })
-  //   })
+    const targetTab = tabs.find((tab) => tab.id === parseInt(tabId))
 
-  //   promise.then((tabs) => {
-  //     setTabs(tabs)
-  //   })
-  // }, [])
+    if (!targetTab) return
+
+    dispatch({
+      type: "set-target-tab",
+      tab: targetTab
+    })
+  }
+
+  useEffect(() => {
+    chrome.tabs.query({ currentWindow: true }).then((result) => {
+      const mapped = result.filter((tab) => tab.id && tab.title)
+
+      setTabs(mapped)
+    })
+  }, [])
 
   return (
     <section className="mt-4">
@@ -104,7 +143,7 @@ const SubtitleControls = () => {
           onClick={handleOnClick}>
           <CloudUpload className="w-5 h-5" />
           <span>
-            {state.parsedSubtitle.length > 0
+            {subtitles.parsed.length > 0
               ? "Upload New Subtitles"
               : "Upload Subtitles"}
           </span>
@@ -118,31 +157,50 @@ const SubtitleControls = () => {
 
       <Separator className="my-4" />
 
-      {state.parsedSubtitle.length > 0 && (
+      {subtitles.parsed.length > 0 && (
         <Card>
           <CardContent>
             <div className="flex flex-col">
-              <div className="flex justify-between gap-4">
+              <div className="flex justify-between gap-4 mt-4">
                 <div className="flex flex-col gap-2">
                   <Captions />
-                  <p>{`${state.fileName?.slice(0, 20)}...${state.fileName?.slice(-10)}`}</p>
+                  <p>{`${subtitles.fileName?.slice(0, 20)}...${subtitles.fileName?.slice(-10)}`}</p>
                 </div>
-                <Badge className="w-fit whitespace-nowrap">Now Playing</Badge>
+                <Badge
+                  className={cn("h-fit whitespace-nowrap rounded-3xl", {
+                    "border-emerald-500": subtitles.parsed.length > 0
+                  })}
+                  variant="outline">
+                  Now Playing
+                </Badge>
               </div>
               <Separator className="my-4" />
 
               <div className="flex flex-col gap-4">
                 <div className="flex justify-between gap-8 items-center">
                   <p>Show Subtitles</p>
-                  <Switch />
+                  <Switch
+                    onCheckedChange={handleOnChangeVisibility}
+                    checked={state.showSubtitles}
+                  />
                 </div>
 
                 <div className="flex justify-between gap-8 items-center">
                   <p>Font size</p>
-                  <ButtonGroup className="cursor-pointer">
-                    <Button>+</Button>
-                    <Button>{state.fontSize}</Button>
-                    <Button>-</Button>
+                  <ButtonGroup className="cursor-pointer h-fit">
+                    <Button
+                      variant="outline"
+                      onClick={handleOnChangeFontSize}
+                      data-op="increase">
+                      +
+                    </Button>
+                    <Button variant="outline">{state.fontSize}</Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleOnChangeFontSize}
+                      data-op="decrease">
+                      -
+                    </Button>
                   </ButtonGroup>
                 </div>
 
@@ -151,6 +209,7 @@ const SubtitleControls = () => {
                   <input
                     className="border-none rounded-3xl ring-none outline-0"
                     type="color"
+                    value={state.backgroundColor}
                     onChange={handleOnChangeBackgroundColor}
                   />
                 </div>
@@ -160,6 +219,7 @@ const SubtitleControls = () => {
                   <input
                     className="border-none rounded-3xl ring-none outline-0"
                     type="color"
+                    value={state.color}
                     onChange={handleOnChangeTextColor}
                   />
                 </div>
@@ -169,7 +229,9 @@ const SubtitleControls = () => {
                 <div className="flex flex-col justify-between gap-2">
                   <p>Choose Tab</p>
 
-                  <Select>
+                  <Select
+                    onValueChange={handleOnChangeSelectedTab}
+                    value={state?.tab?.id?.toString()}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select a fruit" />
                     </SelectTrigger>
