@@ -46,7 +46,7 @@ const SubtitleControls = () => {
     inputRef.current.click()
   }
 
-  const handleOnChange: ChangeEventHandler<HTMLInputElement> = (e) => {
+  const handleOnChangeFileInput: ChangeEventHandler<HTMLInputElement> = (e) => {
     const file = e.currentTarget.files?.[0]
     if (!file) {
       console.error("No file found!")
@@ -134,7 +134,7 @@ const SubtitleControls = () => {
           type="file"
           accept=".srt"
           className="hidden"
-          onChange={handleOnChange}
+          onChange={handleOnChangeFileInput}
         />
         <Button
           size="lg"
