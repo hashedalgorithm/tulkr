@@ -37,8 +37,10 @@ export const getStyle = (): HTMLStyleElement => {
 
 const CSUIExample = () => {
   return (
-    <div className="flex w-[400px] flex-col border-2 bg-yellow-50">
-      <p>helloooo!!</p>
+    <div className="font-notosans fixed w-dvw h-fit bottom-10 px-8 py-4 flex justify-center items-center z-[9999999999] select-none pointer-events-none">
+      <p className="text-xl font-medium text-center text-sub-foreground pointer-events-none select-none mix-blend-multiply">
+        Subtitles preview: Your subs will be playing here {"No subs found"}
+      </p>
     </div>
   )
 }
