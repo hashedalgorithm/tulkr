@@ -13,7 +13,12 @@ import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { useSubtitleContext } from "@/contexts/subtitle-context"
 import { parseSubtitles } from "@/lib/subs"
-import type { TColor, TParsedSubtitle } from "@/types"
+import type {
+  TColor,
+  TMessagePayloadRequest,
+  TMessagePayloadResponse,
+  TParsedSubtitle
+} from "@/types"
 import { Captions, CloudUpload } from "lucide-react"
 import {
   useEffect,
@@ -23,12 +28,15 @@ import {
   type MouseEventHandler
 } from "react"
 
+import { sendToContentScript } from "@plasmohq/messaging"
+
 import { cn } from "~lib/utils"
 
 type TSubtitles = {
   fileName?: string
   parsed: TParsedSubtitle[]
 }
+type TSubtitleStatus = "uploaded" | "injected" | "idle"
 
 const SubtitleControls = () => {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -37,6 +45,8 @@ const SubtitleControls = () => {
   const [subtitles, setSubtitles] = useState<TSubtitles>({
     parsed: []
   })
+  const [isSubtitlesInjected, setIsSubtitlesInjected] =
+    useState<TSubtitleStatus>("idle")
 
   const [tabs, setTabs] = useState<chrome.tabs.Tab[]>([])
 
@@ -55,7 +65,7 @@ const SubtitleControls = () => {
 
     const reader = new FileReader()
 
-    reader.onload = () => {
+    reader.onload = async () => {
       const raw = reader.result?.toString()
 
       if (!raw) {
@@ -63,10 +73,25 @@ const SubtitleControls = () => {
         return
       }
 
+      const parsed = parseSubtitles(raw)
+      setIsSubtitlesInjected("uploaded")
       setSubtitles({
-        parsed: parseSubtitles(raw),
+        parsed,
         fileName: file.name
       })
+
+      if (!state.tab) return
+
+      chrome.tabs.sendMessage(state.tab.id, {
+        type: "sub-init",
+        subs: parsed,
+        fileName: file.name
+      } satisfies TMessagePayloadRequest)
+
+      // if (response.type === "ack-init" && response.status === "success") {
+      //   setIsSubtitlesInjected("injected")
+      //   return
+      // }
     }
     reader.readAsText(file)
   }

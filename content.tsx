@@ -1,5 +1,11 @@
+import type {
+  TMessagePayloadRequest,
+  TMessagePayloadResponse,
+  TParsedSubtitle
+} from "@/types"
 import cssText from "data-text:~globals.css"
 import type { PlasmoCSConfig } from "plasmo"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"]
@@ -35,14 +41,81 @@ export const getStyle = (): HTMLStyleElement => {
   return styleElement
 }
 
-const CSUIExample = () => {
+type TSubtitle = {
+  parsedSubtitles: TParsedSubtitle[]
+  fileName: string
+}
+
+const ContentUI = () => {
+  const [subtitle, setSubtitle] = useState<TSubtitle | undefined>()
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [timeouts, setTimeouts] = useState<NodeJS.Timeout[]>([])
+
+  const innerText = useMemo(() => {
+    if (!isPlaying) return "Subtitles preview: Your subs will be playing here"
+
+    if (subtitle.fileName) return `Found subtitles from - ${subtitle.fileName}`
+
+    return "Playing subs"
+  }, [isPlaying, subtitle?.fileName])
+
+  const listenerOnPlay = useCallback(function (this: Document, event: Event) {
+    setIsPlaying(true)
+    console.log("Something is poaying")
+  }, [])
+
+  const listerOnMessages = useCallback(
+    async (req: TMessagePayloadRequest, res: TMessagePayloadResponse) => {
+      switch (req.type) {
+        case "sub-init": {
+          setSubtitle({
+            parsedSubtitles: req.subs,
+            fileName: req.fileName
+          })
+
+          chrome.runtime.sendMessage<TMessagePayloadResponse>({
+            type: "ack-sub-init",
+            status: "success"
+          })
+          return
+        }
+        case "sub-clear": {
+          setSubtitle(undefined)
+
+          chrome.runtime.sendMessage<TMessagePayloadResponse>({
+            type: "ack-sub-clear",
+            status: "success"
+          })
+
+          return
+        }
+        default: {
+          chrome.runtime.sendMessage<TMessagePayloadResponse>({
+            type: `ack-error`,
+            status: "fail"
+          })
+          return
+        }
+      }
+    },
+    []
+  )
+
+  useEffect(() => {
+    if (!document) return
+
+    document.addEventListener("play", listenerOnPlay)
+
+    return () => document.removeEventListener("play", listenerOnPlay)
+  }, [listenerOnPlay])
+
   return (
     <div className="font-notosans fixed w-dvw h-fit bottom-10 px-8 py-4 flex justify-center items-center z-[9999999999] select-none pointer-events-none">
       <p className="text-xl font-medium text-center text-sub-foreground pointer-events-none select-none mix-blend-multiply">
-        Subtitles preview: Your subs will be playing here {"No subs found"}
+        {innerText}
       </p>
     </div>
   )
 }
 
-export default CSUIExample
+export default ContentUI
