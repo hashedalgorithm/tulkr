@@ -112,7 +112,7 @@ const onMessageListner = async (
       return await sendMessageToTab<TWORKER_PAYLOAD_RES_GET_TABID>(
         sender.tab?.id,
         {
-          type: "res:session:get-active",
+          type: "res:tab-id:get",
           from: "worker",
           to: "content",
           payload: {

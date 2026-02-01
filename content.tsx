@@ -173,8 +173,6 @@ const ContentUI = () => {
   if (!isWorkerReady || !currentSession?.tabId || !tabId) return <></>
   if (currentSession?.tabId !== tabId) return <></>
 
-  console.log("hello")
-  console.log(isWorkerReady, tabId, currentSession)
   return (
     <div className="pointer-events-none fixed bottom-10 z-[9999999999] flex h-fit w-dvw select-none items-center justify-center px-8 py-4 font-notosans">
       <p className="pointer-events-none select-none text-center text-xl font-medium text-sub-foreground mix-blend-multiply">
