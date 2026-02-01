@@ -49,7 +49,7 @@ export const sendMessageInRuntime = async <
   message: TMessageBody<MessageInstanceAction, Payload>
 ) => {
   try {
-    await chrome.runtime.sendMessage(message, (e) => {})
+    await chrome.runtime.sendMessage(message)
   } catch (raw: unknown) {
     const error = raw as Error
     console.error(error.message, error.stack)
