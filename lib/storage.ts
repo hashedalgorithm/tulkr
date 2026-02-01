@@ -2,9 +2,11 @@ export const STORAGE_KEY_CONFIG = "subtitle_config"
 export const STORAGE_KEY_IS_WORKER_ACTIVE = "is_worker_active"
 
 class ExtensionLocalStorage {
-  constructor() {
+  constructor(context: "content" | "worker" | "popup") {
+    if (context === "content") return
+
     chrome.storage.local.setAccessLevel({
-      accessLevel: "TRUSTED_CONTEXTS"
+      accessLevel: "TRUSTED_AND_UNTRUSTED_CONTEXTS"
     })
   }
 
