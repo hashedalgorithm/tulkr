@@ -41,7 +41,7 @@ import {
 import { cn } from "~lib/utils"
 
 const SubtitleControls = () => {
-  const storage = new ExtensionLocalStorage()
+  const storage = new ExtensionLocalStorage("popup")
   const inputRef = useRef<HTMLInputElement>(null)
   const { state, dispatch } = useSubtitleContext()
 

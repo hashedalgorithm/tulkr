@@ -18,7 +18,7 @@ import ExtensionLocalStorage, {
 import { uniqueId } from "lodash"
 
 const indexdb = new IndexedDB()
-const storage = new ExtensionLocalStorage()
+const storage = new ExtensionLocalStorage("worker")
 
 const onMessageListner = async (
   message: TMessageBody<TPopupMessageActions | TContentMessageActions, unknown>

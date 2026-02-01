@@ -47,7 +47,7 @@ export const getStyle = (): HTMLStyleElement => {
 }
 
 const ContentUI = () => {
-  const [isWorkerReady, setIsWorkerReady] = useState(true)
+  const storage = new ExtensionLocalStorage("content")
   const [currentSession, setCurrentSession] = useState<TSession>(undefined)
   const [parsedSubtitles, setParsedSubtitle] = useState<TParsedSubtitle[]>([])
 
