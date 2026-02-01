@@ -47,7 +47,6 @@ const SubtitleControls = () => {
 
   const [tabs, setTabs] = useState<chrome.tabs.Tab[]>([])
 
-  const [initialCheckForSession, setInitialCheckForSession] = useState(false)
   const [isWorkerReady, setIsWorkerReady] = useState(false)
   const [currentSession, setCurrentSession] = useState<TSession | undefined>()
 
@@ -85,7 +84,11 @@ const SubtitleControls = () => {
           from: "popup",
           to: "worker",
           payload: {
-            rawSubtitles: file,
+            rawSubtitles: {
+              fileName: file.name,
+              raw: await file.text(),
+              size: file.size
+            },
             tabId: state.tab.id,
             url: state.tab.url
           }
@@ -170,7 +173,6 @@ const SubtitleControls = () => {
         case "res:session:get-active": {
           const session = message.payload as TWORKER_PAYLOAD_RES_GET_ACTIVE
           setCurrentSession(session)
-          setInitialCheckForSession(true)
         }
 
         default:
@@ -203,20 +205,17 @@ const SubtitleControls = () => {
   }, [isWorkerReady])
 
   useEffect(() => {
-    if (
-      initialCheckForSession ||
-      !state.tab ||
-      !!currentSession ||
-      !isWorkerReady
-    )
-      return
+    if (!state?.tab || !!currentSession || !isWorkerReady) return
+
     sendMessageInRuntime<TPopupMessageActions, TPOPUP_PAYLOAD_REQ_GET_ACTIVE>({
       type: "req:session:get-active",
       from: "popup",
       to: "worker",
-      payload: {}
+      payload: {
+        tabId: state?.tab?.id
+      }
     })
-  }, [initialCheckForSession, currentSession, isWorkerReady])
+  }, [currentSession, isWorkerReady, state?.tab?.id])
 
   if (!isWorkerReady) return <Spinner />
 
@@ -253,7 +252,7 @@ const SubtitleControls = () => {
         <Button
           size="lg"
           type="button"
-          disabled={!initialCheckForSession}
+          disabled={!state.tab}
           className="w-full cursor-pointer justify-start gap-3 px-5 py-6"
           onClick={handleOnClick}>
           <CloudUpload className="h-5 w-5" />
@@ -277,7 +276,7 @@ const SubtitleControls = () => {
               <div className="mt-4 flex justify-between gap-4">
                 <div className="flex flex-col gap-2">
                   <Captions />
-                  <p>{`${currentSession.rawSubtitles.name.slice(0, 20)}...${currentSession.rawSubtitles.name.slice(-10)}`}</p>
+                  <p>{`${currentSession.rawSubtitles.fileName.slice(0, 20)}...${currentSession.rawSubtitles.fileName.slice(-10)}`}</p>
                 </div>
                 <Badge
                   className={cn("h-fit whitespace-nowrap rounded-3xl", {

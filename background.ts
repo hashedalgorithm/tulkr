@@ -32,7 +32,7 @@ const onMessageListner = async (
       if (!payload.rawSubtitles || !payload.tabId) return
 
       const session = {
-        sessionId: uniqueId(),
+        sessionId: uniqueId("SESS_"),
         lastUpdatedAt: new Date().toISOString(),
         status: "active",
         ...payload
@@ -75,10 +75,9 @@ const onMessageListner = async (
 
       if (!payload.tabId) return
 
-      const resp = await indexdb.getWithIndex("tabId")
+      const resp = await indexdb.getWithIndex("tabId", payload.tabId)
       const session = resp.at(0)
 
-      console.log(session, "sw")
       if (message.from === "popup") {
         return await sendMessageInRuntime<
           TWorkerMessageActions,

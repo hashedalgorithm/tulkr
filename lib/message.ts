@@ -27,7 +27,7 @@ export type TMessageBody<
   payload: Payload
 }
 
-export type TPOPUP_PAYLOAD_REQ_GET_ACTIVE = {}
+export type TPOPUP_PAYLOAD_REQ_GET_ACTIVE = Pick<TSession, "tabId">
 export type TPOPUP_PAYLOAD_REQ_INIT = Pick<
   TSession,
   "rawSubtitles" | "tabId" | "url"
