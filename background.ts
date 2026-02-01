@@ -10,6 +10,7 @@ import {
   type TPopupMessageActions,
   type TWORKER_PAYLOAD_REQ_END,
   type TWORKER_PAYLOAD_RES_GET_ACTIVE,
+  type TWORKER_PAYLOAD_RES_GET_TABID,
   type TWorkerMessageActions
 } from "@/lib/message"
 import ExtensionLocalStorage, {
@@ -21,7 +22,8 @@ const indexdb = new IndexedDB()
 const storage = new ExtensionLocalStorage("worker")
 
 const onMessageListner = async (
-  message: TMessageBody<TPopupMessageActions | TContentMessageActions, unknown>
+  message: TMessageBody<TPopupMessageActions | TContentMessageActions, unknown>,
+  sender: chrome.runtime.MessageSender
 ) => {
   if (message.to !== "worker" || message.from === "worker") return
 
@@ -102,6 +104,22 @@ const onMessageListner = async (
       }
 
       return
+    }
+
+    case "req:tab-id:get": {
+      if (sender.tab?.id) return
+
+      return await sendMessageToTab<TWORKER_PAYLOAD_RES_GET_TABID>(
+        sender.tab?.id,
+        {
+          type: "res:session:get-active",
+          from: "worker",
+          to: "content",
+          payload: {
+            tabId: sender.tab?.id
+          }
+        }
+      )
     }
     default: {
       console.error("Invalid message request!")

@@ -1,11 +1,17 @@
 import { type TSession } from "@/lib/indexed-db"
-import type {
-  TMessageBody,
-  TWORKER_PAYLOAD_REQ_END,
-  TWORKER_PAYLOAD_REQ_INIT,
-  TWORKER_PAYLOAD_RES_GET_ACTIVE,
-  TWorkerMessageActions
+import {
+  sendMessageInRuntime,
+  type TContentMessageActions,
+  type TMessageBody,
+  type TWORKER_PAYLOAD_REQ_END,
+  type TWORKER_PAYLOAD_REQ_INIT,
+  type TWORKER_PAYLOAD_RES_GET_ACTIVE,
+  type TWORKER_PAYLOAD_RES_GET_TABID,
+  type TWorkerMessageActions
 } from "@/lib/message"
+import ExtensionLocalStorage, {
+  STORAGE_KEY_IS_WORKER_ACTIVE
+} from "@/lib/storage"
 import { parseSubtitles } from "@/lib/subs"
 import type { TParsedSubtitle } from "@/types"
 import cssText from "data-text:~globals.css"
@@ -48,6 +54,8 @@ export const getStyle = (): HTMLStyleElement => {
 
 const ContentUI = () => {
   const storage = new ExtensionLocalStorage("content")
+  const [tabId, setTabId] = useState<number | undefined>()
+  const [isWorkerReady, setIsWorkerReady] = useState(false)
   const [currentSession, setCurrentSession] = useState<TSession>(undefined)
   const [parsedSubtitles, setParsedSubtitle] = useState<TParsedSubtitle[]>([])
 
@@ -58,7 +66,7 @@ const ContentUI = () => {
     if (!currentSession)
       return "Subtitles preview: Your subs will be playing here"
 
-    return `Found subtitles from - ${currentSession.rawSubtitles.name}`
+    return `Found subtitles from - ${currentSession.rawSubtitles.fileName}`
   }, [currentSession])
 
   const listenerOnPlay = useCallback(function (this: Document, event: Event) {
@@ -67,9 +75,8 @@ const ContentUI = () => {
   }, [])
 
   const processRawFile = useCallback(
-    async (file: File) => {
-      const textStream = await file.text()
-      setParsedSubtitle(parseSubtitles(textStream))
+    (textBlob: string) => {
+      setParsedSubtitle(parseSubtitles(textBlob))
     },
     [parseSubtitles]
   )
@@ -82,7 +89,7 @@ const ContentUI = () => {
         case "req:session:init": {
           const session = message.payload as TWORKER_PAYLOAD_REQ_INIT
           setCurrentSession(session)
-          await processRawFile(session.rawSubtitles)
+          processRawFile(session.rawSubtitles.raw)
           return
         }
         case "req:session:end": {
@@ -97,7 +104,13 @@ const ContentUI = () => {
           const session = message.payload as TWORKER_PAYLOAD_RES_GET_ACTIVE
 
           setCurrentSession(session)
-          await processRawFile(session.rawSubtitles)
+          processRawFile(session.rawSubtitles.raw)
+          return
+        }
+        case "res:tab-id:get": {
+          const payload = message.payload as TWORKER_PAYLOAD_RES_GET_TABID
+
+          setTabId(payload.tabId)
           return
         }
         default: {
@@ -110,10 +123,40 @@ const ContentUI = () => {
   )
 
   useEffect(() => {
+    if (isWorkerReady) return
+
+    storage.get<boolean>(STORAGE_KEY_IS_WORKER_ACTIVE).then((value) => {
+      setIsWorkerReady(value)
+    })
+  }, [isWorkerReady])
+
+  useEffect(() => {
+    if (tabId || !isWorkerReady) return
+
+    sendMessageInRuntime<TContentMessageActions>({
+      type: "req:tab-id:get",
+      from: "content",
+      to: "worker",
+      payload: {}
+    })
+  }, [tabId, isWorkerReady])
+
+  useEffect(() => {
+    if (!tabId || !!currentSession || !isWorkerReady) return
+
+    sendMessageInRuntime<TContentMessageActions>({
+      type: "req:session:get-active",
+      from: "content",
+      to: "worker",
+      payload: {}
+    })
+  }, [currentSession, isWorkerReady, tabId])
+
+  useEffect(() => {
     chrome.runtime.onMessage.addListener(listerOnMessages)
 
     return () => chrome.runtime.onMessage.removeListener(listerOnMessages)
-  }, [])
+  }, [listerOnMessages])
 
   useEffect(() => {
     document.addEventListener("play", listenerOnPlay)
@@ -121,8 +164,11 @@ const ContentUI = () => {
     return () => document.removeEventListener("play", listenerOnPlay)
   }, [listenerOnPlay])
 
-  if (!isWorkerReady) return <></>
+  if (!isWorkerReady || !currentSession?.tabId || !tabId) return <></>
+  if (currentSession?.tabId !== tabId) return <></>
 
+  console.log("hello")
+  console.log(isWorkerReady, tabId, currentSession)
   return (
     <div className="pointer-events-none fixed bottom-10 z-[9999999999] flex h-fit w-dvw select-none items-center justify-center px-8 py-4 font-notosans">
       <p className="pointer-events-none select-none text-center text-xl font-medium text-sub-foreground mix-blend-multiply">

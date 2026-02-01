@@ -6,9 +6,10 @@ export type TPopupMessageActions =
   | "req:session:end"
 export type TWorkerMessageActions =
   | "res:session:get-active"
+  | "res:tab-id:get"
   | "req:session:init"
   | "req:session:end"
-export type TContentMessageActions = "req:session:get-active"
+export type TContentMessageActions = "req:session:get-active" | "req:tab-id:get"
 
 type TMessageInstanceType = "worker" | "popup" | "content"
 
@@ -37,6 +38,7 @@ export type TPOPUP_PAYLOAD_REQ_END = Pick<TSession, "tabId" | "sessionId">
 export type TWORKER_PAYLOAD_REQ_END = Pick<TSession, "sessionId">
 export type TWORKER_PAYLOAD_REQ_INIT = TSession
 export type TWORKER_PAYLOAD_RES_GET_ACTIVE = TSession | undefined
+export type TWORKER_PAYLOAD_RES_GET_TABID = Pick<TSession, "tabId">
 
 export type TCONTENT_PAYLOAD_REQ_GET_ACTIVE = Pick<TSession, "tabId">
 
@@ -47,7 +49,7 @@ export const sendMessageInRuntime = async <
   message: TMessageBody<MessageInstanceAction, Payload>
 ) => {
   try {
-    await chrome.runtime.sendMessage(message)
+    await chrome.runtime.sendMessage(message, (e) => {})
   } catch (raw: unknown) {
     const error = raw as Error
     console.error(error.message, error.stack)
