@@ -1,9 +1,12 @@
-import { reject } from "lodash"
-
+type TFile = {
+  raw: string
+  fileName: string
+  size: number
+}
 type TSessionStatus = "idle" | "active" | "playing" | "paused"
 export type TSession = {
   sessionId: string
-  rawSubtitles: File
+  rawSubtitles: TFile
   lastUpdatedAt: string
   status: TSessionStatus
   tabId: number
@@ -27,8 +30,7 @@ class IndexedDB {
         if (db.objectStoreNames.contains(this.INDEXED_DB_STORE_NAME)) return
 
         const store = db.createObjectStore(this.INDEXED_DB_STORE_NAME, {
-          keyPath: this.INDEXED_DB_STORE_SESSIONS_KEY_ID,
-          autoIncrement: true
+          keyPath: this.INDEXED_DB_STORE_SESSIONS_KEY_ID
         } satisfies IDBObjectStoreParameters)
 
         if (!store.indexNames.contains("tabId" satisfies keyof TSession)) {
@@ -72,7 +74,7 @@ class IndexedDB {
       throw new Error("IndexedDB not initialized")
   }
 
-  async get(sessionId: string): Promise<TSession> {
+  async get(sessionId: TSession["sessionId"]): Promise<TSession> {
     await this.ensureReady()
 
     return new Promise((resolve, reject) => {
@@ -85,9 +87,8 @@ class IndexedDB {
         .get(sessionId)
 
       req.onsuccess = () => resolve(req.result as TSession)
-      req.onerror = () => {
-        reject(this.toError(req.error))
-      }
+      req.onerror = () => reject(this.toError(req.error))
+
       req.transaction.onabort = () => reject(this.toError(transaction.error))
       req.transaction.onerror = () => reject(this.toError(transaction.error))
     })
@@ -95,7 +96,7 @@ class IndexedDB {
 
   async getWithIndex(
     index: keyof TSession,
-    value: string
+    value: string | number
   ): Promise<TSession[]> {
     await this.ensureReady()
 
@@ -112,32 +113,34 @@ class IndexedDB {
       const req = idx.get(value)
 
       req.onsuccess = () => resolve([req.result] as TSession[])
-      req.onerror = () => {
-        reject(this.toError(req.error))
-      }
+      req.onerror = () => reject(this.toError(req.error))
+
       req.transaction.onabort = () => reject(this.toError(transaction.error))
       req.transaction.onerror = () => reject(this.toError(transaction.error))
     })
   }
 
-  async insert(value: TSession): Promise<void> {
+  async insert(value: TSession): Promise<TSession> {
     await this.ensureReady()
     return new Promise((resolve, reject) => {
       const transaction = this.db.transaction(
         this.INDEXED_DB_STORE_NAME,
         "readwrite"
       )
+
       const req = transaction.objectStore(this.INDEXED_DB_STORE_NAME).put(value)
-      req.onsuccess = () => resolve()
-      req.onerror = () => {
-        reject(this.toError(req.error))
+      req.onsuccess = async () => {
+        const resp = await this.get(value.sessionId)
+        resolve(resp)
       }
+      req.onerror = () => reject(this.toError(req.error))
+
       req.transaction.onabort = () => reject(this.toError(transaction.error))
       req.transaction.onerror = () => reject(this.toError(transaction.error))
     })
   }
 
-  async delete(sessionId: string): Promise<void> {
+  async delete(sessionId: TSession["sessionId"]): Promise<void> {
     await this.ensureReady()
 
     return new Promise((resolve, reject) => {
@@ -149,20 +152,20 @@ class IndexedDB {
         .objectStore(this.INDEXED_DB_STORE_NAME)
         .delete(sessionId)
       req.onsuccess = () => resolve()
-      req.onerror = () => {
-        reject(this.toError(req.error))
-      }
+      req.onerror = () => reject(this.toError(req.error))
+
       req.transaction.onabort = () => reject(this.toError(transaction.error))
       req.transaction.onerror = () => reject(this.toError(transaction.error))
     })
   }
 
   async update(
-    sessionId: string,
+    sessionId: TSession["sessionId"],
     key: keyof TSession,
     value: TSession[keyof TSession]
-  ): Promise<void> {
+  ): Promise<TSession> {
     await this.ensureReady()
+
     const existingValue = await this.get(sessionId)
 
     if (!existingValue) {
@@ -170,7 +173,7 @@ class IndexedDB {
       return
     }
 
-    await this.insert({ ...existingValue, [key]: value })
+    return await this.insert({ ...existingValue, [key]: value })
   }
 
   toError(e: DOMException | null) {
