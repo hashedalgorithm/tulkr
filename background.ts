@@ -130,13 +130,10 @@ const onMessageListner = async (
 }
 
 function main() {
-  console.log("Service Worker Active!")
-
   indexdb.status
     .then((status) => {
       if (status !== "ready") return
 
-      console.log("Listening for messages!")
       chrome.runtime.onMessage.addListener(onMessageListner)
       storage.set(STORAGE_KEY_IS_WORKER_ACTIVE, true)
     })

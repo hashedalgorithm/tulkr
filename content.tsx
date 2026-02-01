@@ -13,11 +13,18 @@ import {
 import ExtensionLocalStorage, {
   STORAGE_KEY_IS_WORKER_ACTIVE
 } from "@/lib/storage"
-import { parseSubtitles } from "@/lib/subs"
-import type { TParsedSubtitle } from "@/types"
+import { findLastCueStartingBeforeOrAt, parseSubtitles } from "@/lib/subs"
 import cssText from "data-text:~globals.css"
 import type { PlasmoCSConfig } from "plasmo"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction
+} from "react"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"]
@@ -53,34 +60,150 @@ export const getStyle = (): HTMLStyleElement => {
   return styleElement
 }
 
+const useSubtitles = (
+  currentSession: TSession | undefined,
+  setCurrentCue: Dispatch<SetStateAction<string>>
+) => {
+  const [video, setVideo] = useState<HTMLVideoElement>(null)
+
+  const parsedSubtitles = useMemo(() => {
+    if (!currentSession) return []
+    return parseSubtitles(currentSession?.rawSubtitles?.raw)
+  }, [currentSession?.rawSubtitles?.raw])
+
+  const cueStartTimesSec = useMemo(() => {
+    if (parsedSubtitles.length === 0) return undefined
+    return parsedSubtitles.map((c) => c.startAt)
+  }, [parsedSubtitles])
+
+  // These refs avoid re-rendering every frame.
+  const rafIdRef = useRef<number | null>(null)
+  const lastRenderedCueIdRef = useRef<number | null>(null)
+  const lastRenderedTextRef = useRef<string>("")
+
+  const syncTextToCurrentTime = useCallback(() => {
+    const timeSec = video.currentTime
+
+    const candidateIndex = findLastCueStartingBeforeOrAt(
+      cueStartTimesSec,
+      timeSec
+    )
+
+    let nextText = ""
+    let nextCueId: number | null = null
+
+    if (candidateIndex >= 0) {
+      const cue = parsedSubtitles[candidateIndex]
+      if (timeSec >= cue.startAt && timeSec <= cue.endAt) {
+        nextText = cue.text
+        nextCueId = cue.id
+      }
+    }
+
+    if (
+      nextCueId === lastRenderedCueIdRef.current &&
+      nextText === lastRenderedTextRef.current
+    ) {
+      return
+    }
+
+    lastRenderedCueIdRef.current = nextCueId
+    lastRenderedTextRef.current = nextText
+    setCurrentCue(nextText)
+  }, [video?.currentTime, cueStartTimesSec, setCurrentCue])
+
+  const animationLoop = useCallback(() => {
+    syncTextToCurrentTime()
+
+    if (!video.paused && !video.ended) {
+      rafIdRef.current = requestAnimationFrame(animationLoop)
+    } else {
+      rafIdRef.current = null
+    }
+  }, [video?.paused, video?.ended, parsedSubtitles, syncTextToCurrentTime])
+
+  useEffect(() => {
+    if (!video || !parsedSubtitles || !cueStartTimesSec) return
+
+    const startLoopIfNeeded = () => {
+      if (rafIdRef.current != null) return
+      rafIdRef.current = requestAnimationFrame(animationLoop)
+    }
+
+    const stopLoopAndSyncOnce = () => {
+      if (rafIdRef.current != null) {
+        cancelAnimationFrame(rafIdRef.current)
+        rafIdRef.current = null
+      }
+      syncTextToCurrentTime()
+    }
+
+    const onPlay = () => startLoopIfNeeded()
+    const onPause = () => stopLoopAndSyncOnce()
+    const onSeeked = () => stopLoopAndSyncOnce()
+    const onRateChange = () => syncTextToCurrentTime()
+    const onPlaying = () => startLoopIfNeeded()
+
+    video.addEventListener("play", onPlay)
+    video.addEventListener("pause", onPause)
+    video.addEventListener("seeked", onSeeked)
+    video.addEventListener("ratechange", onRateChange)
+    video.addEventListener("playing", onPlaying)
+
+    // Initial sync + start loop if already playing
+    syncTextToCurrentTime()
+    if (!video.paused && !video.ended) {
+      startLoopIfNeeded()
+    }
+
+    return () => {
+      if (rafIdRef.current != null) {
+        cancelAnimationFrame(rafIdRef.current)
+        rafIdRef.current = null
+      }
+      video.removeEventListener("playing", onPlaying)
+      video.removeEventListener("play", onPlay)
+      video.removeEventListener("pause", onPause)
+      video.removeEventListener("seeked", onSeeked)
+      video.removeEventListener("ratechange", onRateChange)
+    }
+  }, [video, parsedSubtitles, cueStartTimesSec])
+
+  useEffect(() => {
+    const obs = new MutationObserver(() => {
+      const video = document.querySelector("video")
+      if (!video) return
+      setVideo(video)
+      obs.disconnect()
+    })
+
+    obs.observe(document.documentElement, {
+      childList: true,
+      subtree: true
+    })
+
+    setTimeout(() => {
+      obs.disconnect()
+    }, 10000)
+
+    return () => obs.disconnect()
+  }, [])
+
+  return {}
+}
+
+const placeholderCue = "Subtitles preview: Your subs will be playing here"
+const defaultSessionCue = (fileName: string) =>
+  `Found subtitles from - ${fileName}`
+
 const ContentUI = () => {
   const storage = new ExtensionLocalStorage("content")
   const [tabId, setTabId] = useState<number | undefined>()
+  const [currentCue, setCurrentCue] = useState(placeholderCue)
   const [isWorkerReady, setIsWorkerReady] = useState(false)
   const [currentSession, setCurrentSession] = useState<TSession>(undefined)
-  const [parsedSubtitles, setParsedSubtitle] = useState<TParsedSubtitle[]>([])
 
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [timeouts, setTimeouts] = useState<NodeJS.Timeout[]>([])
-
-  const innerText = useMemo(() => {
-    if (!currentSession)
-      return "Subtitles preview: Your subs will be playing here"
-
-    return `Found subtitles from - ${currentSession.rawSubtitles.fileName}`
-  }, [currentSession])
-
-  const listenerOnPlay = useCallback(function (this: Document, event: Event) {
-    setIsPlaying(true)
-    console.log("Something is poaying")
-  }, [])
-
-  const processRawFile = useCallback(
-    (textBlob: string) => {
-      setParsedSubtitle(parseSubtitles(textBlob))
-    },
-    [parseSubtitles]
-  )
+  const {} = useSubtitles(currentSession, setCurrentCue)
 
   const listerOnMessages = useCallback(
     async (message: TMessageBody<TWorkerMessageActions>) => {
@@ -90,7 +213,8 @@ const ContentUI = () => {
         case "req:session:init": {
           const session = message.payload as TWORKER_PAYLOAD_REQ_INIT
           setCurrentSession(session)
-          processRawFile(session.rawSubtitles.raw)
+
+          setCurrentCue(defaultSessionCue(session.rawSubtitles.fileName))
           return
         }
         case "req:session:end": {
@@ -98,14 +222,16 @@ const ContentUI = () => {
           if (payload.sessionId !== currentSession?.sessionId) return
 
           setCurrentSession(undefined)
-          setParsedSubtitle([])
+          setCurrentCue(placeholderCue)
           return
         }
         case "res:session:get-active": {
           const session = message.payload as TWORKER_PAYLOAD_RES_GET_ACTIVE
 
           setCurrentSession(session)
-          processRawFile(session.rawSubtitles.raw)
+          if (!session) return
+
+          setCurrentCue(defaultSessionCue(session.rawSubtitles.fileName))
           return
         }
         case "res:tab-id:get": {
@@ -120,7 +246,7 @@ const ContentUI = () => {
         }
       }
     },
-    [processRawFile]
+    []
   )
 
   useEffect(() => {
@@ -164,19 +290,13 @@ const ContentUI = () => {
     return () => chrome.runtime.onMessage.removeListener(listerOnMessages)
   }, [listerOnMessages])
 
-  useEffect(() => {
-    document.addEventListener("play", listenerOnPlay)
-
-    return () => document.removeEventListener("play", listenerOnPlay)
-  }, [listenerOnPlay])
-
   if (!isWorkerReady || !currentSession?.tabId || !tabId) return <></>
   if (currentSession?.tabId !== tabId) return <></>
 
   return (
     <div className="pointer-events-none fixed bottom-10 z-[9999999999] flex h-fit w-dvw select-none items-center justify-center px-8 py-4 font-notosans">
       <p className="pointer-events-none select-none text-center text-xl font-medium text-sub-foreground mix-blend-multiply">
-        {innerText}
+        {currentCue}
       </p>
     </div>
   )
