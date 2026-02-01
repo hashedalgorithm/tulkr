@@ -1,3 +1,4 @@
+import { STORAGE_KEY_CONFIG } from "@/lib/storage"
 import type { TColor } from "@/types"
 import {
   createContext,
@@ -119,8 +120,6 @@ export const useSubtitleContextState = () => ({
   state: useContext(RawContext).state
 })
 
-export const STORAGE_KEY = "subtitle_config"
-
 const SubtitleContext = ({ children }: SubtitleContextProps) => {
   const [isLoading, setIsLoading] = useState(false)
 
@@ -128,14 +127,14 @@ const SubtitleContext = ({ children }: SubtitleContextProps) => {
 
   useEffect(() => {
     chrome.storage.local.get(
-      STORAGE_KEY,
+      STORAGE_KEY_CONFIG,
       (result: SubtitleContextReducerState) => {
         setIsLoading(true)
 
-        if (result[STORAGE_KEY]) {
+        if (result[STORAGE_KEY_CONFIG]) {
           dispatch({
             type: "sync",
-            config: result[STORAGE_KEY] as SubtitleContextReducerState
+            config: result[STORAGE_KEY_CONFIG] as SubtitleContextReducerState
           })
         }
 
@@ -147,7 +146,7 @@ const SubtitleContext = ({ children }: SubtitleContextProps) => {
   useEffect(() => {
     if (isLoading) return
 
-    chrome.storage.local.set({ [STORAGE_KEY]: state })
+    chrome.storage.local.set({ [STORAGE_KEY_CONFIG]: state })
   }, [state, isLoading])
 
   return (

@@ -10,17 +10,27 @@ import {
   SelectValue
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
 import { useSubtitleContext } from "@/contexts/subtitle-context"
-import { parseSubtitles } from "@/lib/subs"
-import type {
-  TColor,
-  TMessagePayloadRequest,
-  TMessagePayloadResponse,
-  TParsedSubtitle
-} from "@/types"
+import { type TSession } from "@/lib/indexed-db"
+import {
+  sendMessageInRuntime,
+  type TMessageBody,
+  type TPOPUP_PAYLOAD_REQ_END,
+  type TPOPUP_PAYLOAD_REQ_GET_ACTIVE,
+  type TPOPUP_PAYLOAD_REQ_INIT,
+  type TPopupMessageActions,
+  type TWORKER_PAYLOAD_RES_GET_ACTIVE,
+  type TWorkerMessageActions
+} from "@/lib/message"
+import ExtensionLocalStorage, {
+  STORAGE_KEY_IS_WORKER_ACTIVE
+} from "@/lib/storage"
+import type { TColor } from "@/types"
 import { Captions, CloudUpload } from "lucide-react"
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -28,27 +38,18 @@ import {
   type MouseEventHandler
 } from "react"
 
-import { sendToContentScript } from "@plasmohq/messaging"
-
 import { cn } from "~lib/utils"
 
-type TSubtitles = {
-  fileName?: string
-  parsed: TParsedSubtitle[]
-}
-type TSubtitleStatus = "uploaded" | "injected" | "idle"
-
 const SubtitleControls = () => {
+  const storage = new ExtensionLocalStorage()
   const inputRef = useRef<HTMLInputElement>(null)
-
   const { state, dispatch } = useSubtitleContext()
-  const [subtitles, setSubtitles] = useState<TSubtitles>({
-    parsed: []
-  })
-  const [isSubtitlesInjected, setIsSubtitlesInjected] =
-    useState<TSubtitleStatus>("idle")
 
   const [tabs, setTabs] = useState<chrome.tabs.Tab[]>([])
+
+  const [initialCheckForSession, setInitialCheckForSession] = useState(false)
+  const [isWorkerReady, setIsWorkerReady] = useState(false)
+  const [currentSession, setCurrentSession] = useState<TSession | undefined>()
 
   const handleOnClick = () => {
     if (!inputRef.current) return
@@ -73,25 +74,23 @@ const SubtitleControls = () => {
         return
       }
 
-      const parsed = parseSubtitles(raw)
-      setIsSubtitlesInjected("uploaded")
-      setSubtitles({
-        parsed,
-        fileName: file.name
-      })
+      if (!state.tab) {
+        console.error("Cant find the tab!")
+        return
+      }
 
-      if (!state.tab) return
-
-      chrome.tabs.sendMessage(state.tab.id, {
-        type: "sub-init",
-        subs: parsed,
-        fileName: file.name
-      } satisfies TMessagePayloadRequest)
-
-      // if (response.type === "ack-init" && response.status === "success") {
-      //   setIsSubtitlesInjected("injected")
-      //   return
-      // }
+      await sendMessageInRuntime<TPopupMessageActions, TPOPUP_PAYLOAD_REQ_INIT>(
+        {
+          type: "req:session:init",
+          from: "popup",
+          to: "worker",
+          payload: {
+            rawSubtitles: file,
+            tabId: state.tab.id,
+            url: state.tab.url
+          }
+        }
+      )
     }
     reader.readAsText(file)
   }
@@ -143,6 +142,44 @@ const SubtitleControls = () => {
     })
   }
 
+  const handleOnClickRemoveSubtitles: MouseEventHandler<
+    HTMLButtonElement
+  > = async () => {
+    if (!currentSession) {
+      console.error("Cant find current session!")
+      return
+    }
+
+    setCurrentSession(undefined)
+    await sendMessageInRuntime<TPopupMessageActions, TPOPUP_PAYLOAD_REQ_END>({
+      type: "req:session:end",
+      from: "popup",
+      to: "worker",
+      payload: {
+        sessionId: currentSession.sessionId,
+        tabId: currentSession.tabId
+      }
+    })
+  }
+
+  const listnerOnMessage = useCallback(
+    (message: TMessageBody<TWorkerMessageActions>) => {
+      if (message.to !== "popup" || message.from !== "worker") return
+
+      switch (message.type) {
+        case "res:session:get-active": {
+          const session = message.payload as TWORKER_PAYLOAD_RES_GET_ACTIVE
+          setCurrentSession(session)
+          setInitialCheckForSession(true)
+        }
+
+        default:
+          return
+      }
+    },
+    []
+  )
+
   useEffect(() => {
     chrome.tabs.query({ currentWindow: true }).then((result) => {
       const mapped = result.filter((tab) => tab.id && tab.title)
@@ -151,8 +188,60 @@ const SubtitleControls = () => {
     })
   }, [])
 
+  useEffect(() => {
+    chrome.runtime.onMessage.addListener(listnerOnMessage)
+
+    return () => chrome.runtime.onMessage.removeListener(listnerOnMessage)
+  }, [])
+
+  useEffect(() => {
+    if (isWorkerReady) return
+
+    storage.get<boolean>(STORAGE_KEY_IS_WORKER_ACTIVE).then((value) => {
+      setIsWorkerReady(value)
+    })
+  }, [isWorkerReady])
+
+  useEffect(() => {
+    if (
+      initialCheckForSession ||
+      !state.tab ||
+      !!currentSession ||
+      !isWorkerReady
+    )
+      return
+    sendMessageInRuntime<TPopupMessageActions, TPOPUP_PAYLOAD_REQ_GET_ACTIVE>({
+      type: "req:session:get-active",
+      from: "popup",
+      to: "worker",
+      payload: {}
+    })
+  }, [initialCheckForSession, currentSession, isWorkerReady])
+
+  if (!isWorkerReady) return <Spinner />
+
   return (
     <section className="mt-4">
+      <div className="mb-4 flex flex-col justify-between gap-2">
+        <p>Choose Tab</p>
+
+        <Select
+          onValueChange={handleOnChangeSelectedTab}
+          value={state?.tab?.id?.toString()}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select a fruit" />
+          </SelectTrigger>
+          <SelectContent>
+            {tabs?.map((tab) => (
+              <SelectItem
+                key={`subtitle-controls.tabs.${tab.id}`}
+                value={tab.id?.toString() ?? ""}>
+                {tab.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       <label className="block w-full">
         <input
           ref={inputRef}
@@ -164,36 +253,35 @@ const SubtitleControls = () => {
         <Button
           size="lg"
           type="button"
-          className="w-full justify-start px-5 gap-3 py-6 cursor-pointer"
+          disabled={!initialCheckForSession}
+          className="w-full cursor-pointer justify-start gap-3 px-5 py-6"
           onClick={handleOnClick}>
-          <CloudUpload className="w-5 h-5" />
+          <CloudUpload className="h-5 w-5" />
           <span>
-            {subtitles.parsed.length > 0
-              ? "Upload New Subtitles"
-              : "Upload Subtitles"}
+            {currentSession ? "Upload New Subtitles" : "Upload Subtitles"}
           </span>
         </Button>
       </label>
 
-      <p className="text-ring my-6 text-center text-sm">
+      <p className="my-6 text-center text-sm text-ring">
         Upload .srt or .vtt subtitle files to enhance your viewing experience
         across different websites.
       </p>
 
       <Separator className="my-4" />
 
-      {subtitles.parsed.length > 0 && (
+      {currentSession && (
         <Card>
           <CardContent>
             <div className="flex flex-col">
-              <div className="flex justify-between gap-4 mt-4">
+              <div className="mt-4 flex justify-between gap-4">
                 <div className="flex flex-col gap-2">
                   <Captions />
-                  <p>{`${subtitles.fileName?.slice(0, 20)}...${subtitles.fileName?.slice(-10)}`}</p>
+                  <p>{`${currentSession.rawSubtitles.name.slice(0, 20)}...${currentSession.rawSubtitles.name.slice(-10)}`}</p>
                 </div>
                 <Badge
                   className={cn("h-fit whitespace-nowrap rounded-3xl", {
-                    "border-emerald-500": subtitles.parsed.length > 0
+                    "border-emerald-500": currentSession
                   })}
                   variant="outline">
                   Now Playing
@@ -202,7 +290,7 @@ const SubtitleControls = () => {
               <Separator className="my-4" />
 
               <div className="flex flex-col gap-4">
-                <div className="flex justify-between gap-8 items-center">
+                <div className="flex items-center justify-between gap-8">
                   <p>Show Subtitles</p>
                   <Switch
                     onCheckedChange={handleOnChangeVisibility}
@@ -210,9 +298,9 @@ const SubtitleControls = () => {
                   />
                 </div>
 
-                <div className="flex justify-between gap-8 items-center">
+                <div className="flex items-center justify-between gap-8">
                   <p>Font size</p>
-                  <ButtonGroup className="cursor-pointer h-fit">
+                  <ButtonGroup className="h-fit cursor-pointer">
                     <Button
                       variant="outline"
                       onClick={handleOnChangeFontSize}
@@ -229,20 +317,20 @@ const SubtitleControls = () => {
                   </ButtonGroup>
                 </div>
 
-                <div className="flex justify-between gap-8 items-center">
+                <div className="flex items-center justify-between gap-8">
                   <p>Background</p>
                   <input
-                    className="border-none rounded-3xl ring-none outline-0"
+                    className="ring-none rounded-3xl border-none outline-0"
                     type="color"
                     value={state.backgroundColor}
                     onChange={handleOnChangeBackgroundColor}
                   />
                 </div>
 
-                <div className="flex justify-between gap-8 items-center">
+                <div className="flex items-center justify-between gap-8">
                   <p>Text color</p>
                   <input
-                    className="border-none rounded-3xl ring-none outline-0"
+                    className="ring-none rounded-3xl border-none outline-0"
                     type="color"
                     value={state.color}
                     onChange={handleOnChangeTextColor}
@@ -251,29 +339,12 @@ const SubtitleControls = () => {
 
                 <Separator className="my-3" />
 
-                <div className="flex flex-col justify-between gap-2">
-                  <p>Choose Tab</p>
-
-                  <Select
-                    onValueChange={handleOnChangeSelectedTab}
-                    value={state?.tab?.id?.toString()}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select a fruit" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {tabs?.map((tab) => (
-                        <SelectItem
-                          key={`subtitle-controls.tabs.${tab.id}`}
-                          value={tab.id?.toString() ?? ""}>
-                          {tab.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 <div className="flex justify-center">
-                  <Button variant="destructive">Remove Subtitles</Button>
+                  <Button
+                    variant="destructive"
+                    onClick={handleOnClickRemoveSubtitles}>
+                    Remove Subtitles
+                  </Button>
                 </div>
               </div>
             </div>

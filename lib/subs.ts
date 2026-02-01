@@ -1,6 +1,6 @@
-import type { Subtitle } from "@/contexts/subtitle-context"
+import type { TParsedSubtitle } from "@/types"
 
-export const parseSubtitles = (text: string): Array<Subtitle> => {
+export const parseSubtitles = (text: string): Array<TParsedSubtitle> => {
   return text
     .replace(/\r/g, "")
     .split("\n\n")
@@ -18,9 +18,9 @@ export const parseSubtitles = (text: string): Array<Subtitle> => {
         startAt: toSeconds(start),
         endAt: toSeconds(end),
         text: lines.slice(lines.indexOf(timeLine) + 1).join(" ")
-      } satisfies Subtitle
+      } satisfies TParsedSubtitle
     })
-    .filter((sub): sub is Subtitle => sub !== null)
+    .filter((sub): sub is TParsedSubtitle => sub !== null)
 }
 
 const toSeconds = (time: string) => {

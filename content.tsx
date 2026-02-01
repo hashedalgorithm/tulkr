@@ -1,8 +1,13 @@
+import { type TSession } from "@/lib/indexed-db"
 import type {
-  TMessagePayloadRequest,
-  TMessagePayloadResponse,
-  TParsedSubtitle
-} from "@/types"
+  TMessageBody,
+  TWORKER_PAYLOAD_REQ_END,
+  TWORKER_PAYLOAD_REQ_INIT,
+  TWORKER_PAYLOAD_RES_GET_ACTIVE,
+  TWorkerMessageActions
+} from "@/lib/message"
+import { parseSubtitles } from "@/lib/subs"
+import type { TParsedSubtitle } from "@/types"
 import cssText from "data-text:~globals.css"
 import type { PlasmoCSConfig } from "plasmo"
 import { useCallback, useEffect, useMemo, useState } from "react"
@@ -41,77 +46,84 @@ export const getStyle = (): HTMLStyleElement => {
   return styleElement
 }
 
-type TSubtitle = {
-  parsedSubtitles: TParsedSubtitle[]
-  fileName: string
-}
-
 const ContentUI = () => {
-  const [subtitle, setSubtitle] = useState<TSubtitle | undefined>()
+  const [isWorkerReady, setIsWorkerReady] = useState(true)
+  const [currentSession, setCurrentSession] = useState<TSession>(undefined)
+  const [parsedSubtitles, setParsedSubtitle] = useState<TParsedSubtitle[]>([])
+
   const [isPlaying, setIsPlaying] = useState(false)
   const [timeouts, setTimeouts] = useState<NodeJS.Timeout[]>([])
 
   const innerText = useMemo(() => {
-    if (!isPlaying) return "Subtitles preview: Your subs will be playing here"
+    if (!currentSession)
+      return "Subtitles preview: Your subs will be playing here"
 
-    if (subtitle.fileName) return `Found subtitles from - ${subtitle.fileName}`
-
-    return "Playing subs"
-  }, [isPlaying, subtitle?.fileName])
+    return `Found subtitles from - ${currentSession.rawSubtitles.name}`
+  }, [currentSession])
 
   const listenerOnPlay = useCallback(function (this: Document, event: Event) {
     setIsPlaying(true)
     console.log("Something is poaying")
   }, [])
 
+  const processRawFile = useCallback(
+    async (file: File) => {
+      const textStream = await file.text()
+      setParsedSubtitle(parseSubtitles(textStream))
+    },
+    [parseSubtitles]
+  )
+
   const listerOnMessages = useCallback(
-    async (req: TMessagePayloadRequest, res: TMessagePayloadResponse) => {
-      switch (req.type) {
-        case "sub-init": {
-          setSubtitle({
-            parsedSubtitles: req.subs,
-            fileName: req.fileName
-          })
+    async (message: TMessageBody<TWorkerMessageActions>) => {
+      if (message.to !== "content" || message.from !== "worker") return
 
-          chrome.runtime.sendMessage<TMessagePayloadResponse>({
-            type: "ack-sub-init",
-            status: "success"
-          })
-          return
+      switch (message.type) {
+        case "req:session:init": {
+          const session = message.payload as TWORKER_PAYLOAD_REQ_INIT
+          setCurrentSession(session)
+          await processRawFile(session.rawSubtitles)
         }
-        case "sub-clear": {
-          setSubtitle(undefined)
+        case "req:session:end": {
+          const payload = message.payload as TWORKER_PAYLOAD_REQ_END
+          if (payload.sessionId !== currentSession?.sessionId) return
 
-          chrome.runtime.sendMessage<TMessagePayloadResponse>({
-            type: "ack-sub-clear",
-            status: "success"
-          })
+          setCurrentSession(undefined)
+          setParsedSubtitle([])
+        }
+        case "res:session:get-active": {
+          const session = message.payload as TWORKER_PAYLOAD_RES_GET_ACTIVE
 
+          setCurrentSession(session)
+          await processRawFile(session.rawSubtitles)
           return
         }
         default: {
-          chrome.runtime.sendMessage<TMessagePayloadResponse>({
-            type: `ack-error`,
-            status: "fail"
-          })
+          console.error("Invalid message payload received!")
           return
         }
       }
     },
-    []
+    [processRawFile]
   )
 
   useEffect(() => {
-    if (!document) return
+    chrome.runtime.onMessage.addListener(listerOnMessages)
 
+    return () => chrome.runtime.onMessage.removeListener(listerOnMessages)
+  }, [])
+
+  useEffect(() => {
     document.addEventListener("play", listenerOnPlay)
 
     return () => document.removeEventListener("play", listenerOnPlay)
   }, [listenerOnPlay])
 
+  if (!isWorkerReady) return <></>
+
   return (
-    <div className="font-notosans fixed w-dvw h-fit bottom-10 px-8 py-4 flex justify-center items-center z-[9999999999] select-none pointer-events-none">
-      <p className="text-xl font-medium text-center text-sub-foreground pointer-events-none select-none mix-blend-multiply">
+    <div className="pointer-events-none fixed bottom-10 z-[9999999999] flex h-fit w-dvw select-none items-center justify-center px-8 py-4 font-notosans">
+      <p className="pointer-events-none select-none text-center text-xl font-medium text-sub-foreground mix-blend-multiply">
         {innerText}
       </p>
     </div>
