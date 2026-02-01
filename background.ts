@@ -64,6 +64,7 @@ const onMessageListner = async (
 
       if (!payload.sessionId || !payload.tabId) return
 
+      await indexdb.delete(payload.sessionId)
       await sendMessageToTab<TWORKER_PAYLOAD_REQ_END>(payload.tabId, {
         type: "req:session:end",
         from: "worker",
