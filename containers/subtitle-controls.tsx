@@ -205,16 +205,18 @@ const SubtitleControls = () => {
   }, [isWorkerReady])
 
   useEffect(() => {
-    if (!state?.tab || !!currentSession || !isWorkerReady) return
-
-    sendMessageInRuntime<TPopupMessageActions, TPOPUP_PAYLOAD_REQ_GET_ACTIVE>({
-      type: "req:session:get-active",
-      from: "popup",
-      to: "worker",
-      payload: {
-        tabId: state?.tab?.id
-      }
-    })
+    if (isWorkerReady && !currentSession && state.tab) {
+      sendMessageInRuntime<TPopupMessageActions, TPOPUP_PAYLOAD_REQ_GET_ACTIVE>(
+        {
+          type: "req:session:get-active",
+          from: "popup",
+          to: "worker",
+          payload: {
+            tabId: state?.tab?.id
+          }
+        }
+      )
+    }
   }, [currentSession, isWorkerReady, state?.tab?.id])
 
   if (!isWorkerReady) return <Spinner />
