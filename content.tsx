@@ -1,6 +1,7 @@
 import { type TSession } from "@/lib/indexed-db"
 import {
   sendMessageInRuntime,
+  type TCONTENT_PAYLOAD_REQ_GET_ACTIVE,
   type TContentMessageActions,
   type TMessageBody,
   type TWORKER_PAYLOAD_REQ_END,
@@ -144,11 +145,16 @@ const ContentUI = () => {
   useEffect(() => {
     if (!tabId || !!currentSession || !isWorkerReady) return
 
-    sendMessageInRuntime<TContentMessageActions>({
+    sendMessageInRuntime<
+      TContentMessageActions,
+      TCONTENT_PAYLOAD_REQ_GET_ACTIVE
+    >({
       type: "req:session:get-active",
       from: "content",
       to: "worker",
-      payload: {}
+      payload: {
+        tabId
+      }
     })
   }, [currentSession, isWorkerReady, tabId])
 

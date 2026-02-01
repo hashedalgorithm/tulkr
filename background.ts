@@ -107,7 +107,7 @@ const onMessageListner = async (
     }
 
     case "req:tab-id:get": {
-      if (sender.tab?.id) return
+      if (!sender.tab?.id) return
 
       return await sendMessageToTab<TWORKER_PAYLOAD_RES_GET_TABID>(
         sender.tab?.id,
