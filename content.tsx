@@ -83,6 +83,7 @@ const ContentUI = () => {
           const session = message.payload as TWORKER_PAYLOAD_REQ_INIT
           setCurrentSession(session)
           await processRawFile(session.rawSubtitles)
+          return
         }
         case "req:session:end": {
           const payload = message.payload as TWORKER_PAYLOAD_REQ_END
@@ -90,6 +91,7 @@ const ContentUI = () => {
 
           setCurrentSession(undefined)
           setParsedSubtitle([])
+          return
         }
         case "res:session:get-active": {
           const session = message.payload as TWORKER_PAYLOAD_RES_GET_ACTIVE
