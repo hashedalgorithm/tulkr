@@ -1,3 +1,4 @@
+import type { SubtitleContextReducerState } from "@/contexts/subtitle-context"
 import { type TSession } from "@/lib/indexed-db"
 import {
   sendMessageInRuntime,
@@ -11,10 +12,12 @@ import {
   type TWorkerMessageActions
 } from "@/lib/message"
 import ExtensionLocalStorage, {
+  STORAGE_KEY_CONFIG,
   STORAGE_KEY_IS_WORKER_ACTIVE
 } from "@/lib/storage"
 import { findLastCueStartingBeforeOrAt, parseSubtitles } from "@/lib/subs"
 import cssText from "data-text:~globals.css"
+import { has, isEqual } from "lodash"
 import type { PlasmoCSConfig } from "plasmo"
 import {
   useCallback,
@@ -22,7 +25,9 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type Dispatch,
+  type ReducerStateWithoutAction,
   type SetStateAction
 } from "react"
 
@@ -196,12 +201,79 @@ const placeholderCue = "Subtitles preview: Your subs will be playing here"
 const defaultSessionCue = (fileName: string) =>
   `Found subtitles from - ${fileName}`
 
+const baseContainerCssProperties: CSSProperties = {
+  pointerEvents: "none",
+  userSelect: "none",
+  bottom: "2.5rem",
+  zIndex: 999999999999,
+  display: "flex",
+  height: "fit-content",
+  width: "100dvw",
+  justifyContent: "center",
+  alignItems: "center",
+  paddingLeft: "2rem",
+  paddingRight: "2rem",
+  paddingTop: "1rem",
+  paddingBottom: "1rem",
+  fontFamily: "Noto Sans, sans-serif"
+}
+const defaultModeContainerCssProperties: CSSProperties = {
+  position: "fixed"
+}
+
+const fullScreenModeContainerCssProperties: CSSProperties = {
+  position: "absolute",
+  left: "0",
+  right: "0",
+  bottom: "2.5rem"
+}
+const defaultTextCssProperties: CSSProperties = {
+  pointerEvents: "none",
+  userSelect: "none",
+  fontSize: "20px",
+  textAlign: "center",
+  fontWeight: 500,
+  color: "#ffffff",
+  mixBlendMode: "multiply"
+}
+
 const ContentUI = () => {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const textRef = useRef<HTMLParagraphElement>(null)
+
   const storage = new ExtensionLocalStorage("content")
+
   const [tabId, setTabId] = useState<number | undefined>()
   const [currentCue, setCurrentCue] = useState(placeholderCue)
   const [isWorkerReady, setIsWorkerReady] = useState(false)
   const [currentSession, setCurrentSession] = useState<TSession>(undefined)
+  const [isFullScreenMode, setIsFullScreenMode] = useState(false)
+  const [subtitleConfig, setSubtitleConfig] =
+    useState<SubtitleContextReducerState>()
+
+  const containerCssProperties = useMemo<CSSProperties>(() => {
+    if (isFullScreenMode)
+      return {
+        ...baseContainerCssProperties,
+        ...fullScreenModeContainerCssProperties
+      }
+    else
+      return {
+        ...baseContainerCssProperties,
+        ...defaultModeContainerCssProperties
+      }
+  }, [isFullScreenMode])
+
+  const textCssProperties = useMemo<CSSProperties>(() => {
+    if (!subtitleConfig) return defaultTextCssProperties
+    return {
+      ...defaultTextCssProperties,
+      color: subtitleConfig.color,
+      fontSize: `${subtitleConfig.fontSize}px`,
+      backgroundColor: subtitleConfig.backgroundColor,
+      display: subtitleConfig.showSubtitles ? "block" : "none"
+    }
+  }, [subtitleConfig])
 
   const {} = useSubtitles(currentSession, setCurrentCue)
 
@@ -249,6 +321,30 @@ const ContentUI = () => {
     []
   )
 
+  const listnerFullScreenChange = useCallback(() => {
+    if (!containerRef.current) return
+    const fullscreenElement = document.fullscreenElement
+
+    if (fullscreenElement) {
+      setIsFullScreenMode(true)
+      fullscreenElement.appendChild(containerRef.current)
+    } else {
+      setIsFullScreenMode(false)
+      document.body.appendChild(containerRef.current)
+    }
+  }, [])
+
+  const listnerExtensionLocalStorage = useCallback(
+    (changes: { [key: string]: chrome.storage.StorageChange }) => {
+      if (!has(changes, STORAGE_KEY_CONFIG)) return
+
+      const subtitleConfig = changes[STORAGE_KEY_CONFIG]
+
+      setSubtitleConfig(subtitleConfig.newValue)
+    },
+    []
+  )
+
   useEffect(() => {
     if (isWorkerReady) return
 
@@ -290,12 +386,35 @@ const ContentUI = () => {
     return () => chrome.runtime.onMessage.removeListener(listerOnMessages)
   }, [listerOnMessages])
 
+  useEffect(() => {
+    document.addEventListener("fullscreenchange", listnerFullScreenChange)
+
+    return () =>
+      document.removeEventListener("fullscreenchange", listnerFullScreenChange)
+  }, [])
+
+  useEffect(() => {
+    chrome.storage.local.onChanged.addListener(listnerExtensionLocalStorage)
+
+    storage
+      .get<SubtitleContextReducerState>(STORAGE_KEY_CONFIG)
+      .then((value) => {
+        if (!isEqual(value, subtitleConfig)) setSubtitleConfig(value)
+      })
+
+    return () =>
+      chrome.storage.local.onChanged.removeListener(
+        listnerExtensionLocalStorage
+      )
+  }, [])
+
   if (!isWorkerReady || !currentSession?.tabId || !tabId) return <></>
   if (currentSession?.tabId !== tabId) return <></>
+  if (subtitleConfig && !subtitleConfig.showSubtitles) return <></>
 
   return (
-    <div className="pointer-events-none fixed bottom-10 z-[9999999999] flex h-fit w-dvw select-none items-center justify-center px-8 py-4 font-notosans">
-      <p className="pointer-events-none select-none text-center text-xl font-medium text-sub-foreground mix-blend-multiply">
+    <div ref={containerRef} style={containerCssProperties}>
+      <p ref={textRef} style={textCssProperties}>
         {currentCue}
       </p>
     </div>

@@ -63,7 +63,7 @@ const intialReducerState = (): SubtitleContextReducerState => ({
     y: 0
   },
   color: "#ffff00",
-  fontSize: 14,
+  fontSize: 20,
   showSubtitles: false
 })
 
