@@ -228,7 +228,7 @@ const SubtitleControls = () => {
 
         <Select
           onValueChange={handleOnChangeSelectedTab}
-          value={state?.tab?.id?.toString()}>
+          defaultValue={state?.tab?.id?.toString()}>
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Select a fruit" />
           </SelectTrigger>
@@ -323,7 +323,7 @@ const SubtitleControls = () => {
                   <input
                     className="ring-none rounded-3xl border-none outline-0"
                     type="color"
-                    value={state.backgroundColor}
+                    value={state?.backgroundColor ?? "#000000"}
                     onChange={handleOnChangeBackgroundColor}
                   />
                 </div>

@@ -112,7 +112,8 @@ class IndexedDB {
 
       const req = idx.get(value)
 
-      req.onsuccess = () => resolve([req.result] as TSession[])
+      req.onsuccess = () =>
+        resolve(req.result ? [req.result] : ([] as TSession[]))
       req.onerror = () => reject(this.toError(req.error))
 
       req.transaction.onabort = () => reject(this.toError(transaction.error))

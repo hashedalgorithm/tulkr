@@ -17,7 +17,6 @@ import ExtensionLocalStorage, {
 } from "@/lib/storage"
 import { findLastCueStartingBeforeOrAt, parseSubtitles } from "@/lib/subs"
 import cssText from "data-text:~globals.css"
-import { has, isEqual } from "lodash"
 import type { PlasmoCSConfig } from "plasmo"
 import {
   useCallback,
@@ -27,7 +26,6 @@ import {
   useState,
   type CSSProperties,
   type Dispatch,
-  type ReducerStateWithoutAction,
   type SetStateAction
 } from "react"
 
@@ -66,6 +64,7 @@ export const getStyle = (): HTMLStyleElement => {
 }
 
 const useSubtitles = (
+  showSubtitles: boolean,
   currentSession: TSession | undefined,
   setCurrentCue: Dispatch<SetStateAction<string>>
 ) => {
@@ -81,12 +80,13 @@ const useSubtitles = (
     return parsedSubtitles.map((c) => c.startAt)
   }, [parsedSubtitles])
 
-  // These refs avoid re-rendering every frame.
   const rafIdRef = useRef<number | null>(null)
   const lastRenderedCueIdRef = useRef<number | null>(null)
   const lastRenderedTextRef = useRef<string>("")
 
   const syncTextToCurrentTime = useCallback(() => {
+    if (!video || !cueStartTimesSec) return
+
     const timeSec = video.currentTime
 
     const candidateIndex = findLastCueStartingBeforeOrAt(
@@ -115,9 +115,14 @@ const useSubtitles = (
     lastRenderedCueIdRef.current = nextCueId
     lastRenderedTextRef.current = nextText
     setCurrentCue(nextText)
-  }, [video?.currentTime, cueStartTimesSec, setCurrentCue])
+  }, [video, parsedSubtitles, cueStartTimesSec, setCurrentCue])
 
   const animationLoop = useCallback(() => {
+    if (!showSubtitles) {
+      stopLoopAndSyncOnce()
+      return
+    }
+
     syncTextToCurrentTime()
 
     if (!video.paused && !video.ended) {
@@ -125,23 +130,23 @@ const useSubtitles = (
     } else {
       rafIdRef.current = null
     }
-  }, [video?.paused, video?.ended, parsedSubtitles, syncTextToCurrentTime])
+  }, [video, parsedSubtitles, syncTextToCurrentTime])
+
+  const stopLoopAndSyncOnce = useCallback(() => {
+    if (rafIdRef.current != null) {
+      cancelAnimationFrame(rafIdRef.current)
+      rafIdRef.current = null
+    }
+    syncTextToCurrentTime()
+  }, [syncTextToCurrentTime])
+
+  const startLoopIfNeeded = useCallback(() => {
+    if (rafIdRef.current != null) return
+    rafIdRef.current = requestAnimationFrame(animationLoop)
+  }, [animationLoop])
 
   useEffect(() => {
     if (!video || !parsedSubtitles || !cueStartTimesSec) return
-
-    const startLoopIfNeeded = () => {
-      if (rafIdRef.current != null) return
-      rafIdRef.current = requestAnimationFrame(animationLoop)
-    }
-
-    const stopLoopAndSyncOnce = () => {
-      if (rafIdRef.current != null) {
-        cancelAnimationFrame(rafIdRef.current)
-        rafIdRef.current = null
-      }
-      syncTextToCurrentTime()
-    }
 
     const onPlay = () => startLoopIfNeeded()
     const onPause = () => stopLoopAndSyncOnce()
@@ -175,10 +180,17 @@ const useSubtitles = (
   }, [video, parsedSubtitles, cueStartTimesSec])
 
   useEffect(() => {
+    let videoElement = document.querySelector("video")
+
+    if (videoElement) {
+      setVideo(videoElement)
+      return
+    }
+
     const obs = new MutationObserver(() => {
-      const video = document.querySelector("video")
-      if (!video) return
-      setVideo(video)
+      videoElement = document.querySelector("video")
+      if (!videoElement) return
+      setVideo(videoElement)
       obs.disconnect()
     })
 
@@ -239,7 +251,6 @@ const defaultTextCssProperties: CSSProperties = {
 
 const ContentUI = () => {
   const containerRef = useRef<HTMLDivElement>(null)
-  const textRef = useRef<HTMLParagraphElement>(null)
 
   const storage = new ExtensionLocalStorage("content")
 
@@ -275,7 +286,11 @@ const ContentUI = () => {
     }
   }, [subtitleConfig])
 
-  const {} = useSubtitles(currentSession, setCurrentCue)
+  const {} = useSubtitles(
+    subtitleConfig?.showSubtitles ?? true,
+    currentSession,
+    setCurrentCue
+  )
 
   const listerOnMessages = useCallback(
     async (message: TMessageBody<TWorkerMessageActions>) => {
@@ -336,8 +351,6 @@ const ContentUI = () => {
 
   const listnerExtensionLocalStorage = useCallback(
     (changes: { [key: string]: chrome.storage.StorageChange }) => {
-      if (!has(changes, STORAGE_KEY_CONFIG)) return
-
       const subtitleConfig = changes[STORAGE_KEY_CONFIG]
 
       setSubtitleConfig(subtitleConfig.newValue)
@@ -399,14 +412,14 @@ const ContentUI = () => {
     storage
       .get<SubtitleContextReducerState>(STORAGE_KEY_CONFIG)
       .then((value) => {
-        if (!isEqual(value, subtitleConfig)) setSubtitleConfig(value)
+        setSubtitleConfig(value)
       })
 
     return () =>
       chrome.storage.local.onChanged.removeListener(
         listnerExtensionLocalStorage
       )
-  }, [])
+  }, [listnerExtensionLocalStorage, storage, subtitleConfig])
 
   if (!isWorkerReady || !currentSession?.tabId || !tabId) return <></>
   if (currentSession?.tabId !== tabId) return <></>
@@ -414,9 +427,7 @@ const ContentUI = () => {
 
   return (
     <div ref={containerRef} style={containerCssProperties}>
-      <p ref={textRef} style={textCssProperties}>
-        {currentCue}
-      </p>
+      <p style={textCssProperties}>{currentCue}</p>
     </div>
   )
 }
