@@ -3,6 +3,11 @@ import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"
 import { Card, CardContent } from "@/components/ui/card"
 import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger
+} from "@/components/ui/hover-card"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -27,7 +32,7 @@ import {
 import ExtensionLocalStorage, {
   STORAGE_KEY_IS_WORKER_ACTIVE
 } from "@/lib/storage"
-import type { TColor } from "@/types"
+import { Colorful, type ColorResult } from "@uiw/react-color"
 import { Captions, CloudUpload } from "lucide-react"
 import {
   useCallback,
@@ -38,7 +43,7 @@ import {
   type MouseEventHandler
 } from "react"
 
-import { cn } from "~lib/utils"
+import { cn, toStyleSheetSupportedColorFormat } from "~lib/utils"
 
 const SubtitleControls = () => {
   const storage = new ExtensionLocalStorage("popup")
@@ -73,7 +78,7 @@ const SubtitleControls = () => {
         return
       }
 
-      if (!state.tab) {
+      if (!state?.tab) {
         console.error("Cant find the tab!")
         return
       }
@@ -89,8 +94,8 @@ const SubtitleControls = () => {
               raw: await file.text(),
               size: file.size
             },
-            tabId: state.tab.id,
-            url: state.tab.url
+            tabId: state?.tab?.id,
+            url: state?.tab?.url
           }
         }
       )
@@ -116,19 +121,40 @@ const SubtitleControls = () => {
     })
   }
 
-  const handleOnChangeBackgroundColor: ChangeEventHandler<HTMLInputElement> = (
-    e
-  ) => {
+  const handleOnChangeBackgroundColor = (color: ColorResult) => {
     dispatch({
       type: "update-bg-color",
-      color: e.currentTarget.value.toString() as TColor
+      color: color.hsva
     })
   }
 
-  const handleOnChangeTextColor: ChangeEventHandler<HTMLInputElement> = (e) => {
+  const handleOnChangeTextColor = (color: ColorResult) => {
     dispatch({
       type: "update-text-color",
-      color: e.currentTarget.value.toString() as TColor
+      color: color.hsva
+    })
+  }
+
+  const handleOnChangeTextStrokeColor = (color: ColorResult) => {
+    dispatch({
+      type: "update-text-stroke-color",
+      color: color.hsva
+    })
+  }
+
+  const handleOnChangeStrokeWeight: MouseEventHandler<HTMLButtonElement> = (
+    e
+  ) => {
+    const operation = e.currentTarget.getAttribute("data-op")
+
+    if (!operation || (operation !== "increase" && operation !== "decrease"))
+      return
+
+    dispatch({
+      type:
+        operation === "increase"
+          ? "increase-stroke-weight"
+          : "decrease-stroke-weight"
     })
   }
 
@@ -205,7 +231,7 @@ const SubtitleControls = () => {
   }, [isWorkerReady])
 
   useEffect(() => {
-    if (isWorkerReady && !currentSession && state.tab) {
+    if (isWorkerReady && !currentSession && state?.tab) {
       sendMessageInRuntime<TPopupMessageActions, TPOPUP_PAYLOAD_REQ_GET_ACTIVE>(
         {
           type: "req:session:get-active",
@@ -254,7 +280,7 @@ const SubtitleControls = () => {
         <Button
           size="lg"
           type="button"
-          disabled={!state.tab}
+          disabled={!state?.tab}
           className="w-full cursor-pointer justify-start gap-3 px-5 py-6"
           onClick={handleOnClick}>
           <CloudUpload className="h-5 w-5" />
@@ -308,7 +334,7 @@ const SubtitleControls = () => {
                       data-op="increase">
                       +
                     </Button>
-                    <Button variant="outline">{state.fontSize}</Button>
+                    <Button variant="outline">{state.text.size}</Button>
                     <Button
                       variant="outline"
                       onClick={handleOnChangeFontSize}
@@ -320,22 +346,88 @@ const SubtitleControls = () => {
 
                 <div className="flex items-center justify-between gap-8">
                   <p>Background</p>
-                  <input
-                    className="ring-none rounded-3xl border-none outline-0"
-                    type="color"
-                    value={state?.backgroundColor ?? "#000000"}
-                    onChange={handleOnChangeBackgroundColor}
-                  />
+
+                  <HoverCard>
+                    <HoverCardTrigger>
+                      <div
+                        className="h-6 w-10 rounded-md"
+                        style={{
+                          backgroundColor: toStyleSheetSupportedColorFormat(
+                            state.text.backgroundColor
+                          ),
+                          border: "0.5px solid gray"
+                        }}></div>
+                    </HoverCardTrigger>
+                    <HoverCardContent side="bottom" align="start">
+                      <Colorful
+                        color={state.text.backgroundColor}
+                        onChange={handleOnChangeBackgroundColor}
+                      />
+                    </HoverCardContent>
+                  </HoverCard>
                 </div>
 
                 <div className="flex items-center justify-between gap-8">
                   <p>Text color</p>
-                  <input
-                    className="ring-none rounded-3xl border-none outline-0"
-                    type="color"
-                    value={state.color}
-                    onChange={handleOnChangeTextColor}
-                  />
+                  <HoverCard>
+                    <HoverCardTrigger>
+                      <div
+                        className="h-6 w-10 rounded-md"
+                        style={{
+                          backgroundColor: toStyleSheetSupportedColorFormat(
+                            state.text.color
+                          ),
+                          border: "0.5px solid gray"
+                        }}></div>
+                    </HoverCardTrigger>
+                    <HoverCardContent side="bottom" align="start">
+                      <Colorful
+                        color={state.text.color}
+                        onChange={handleOnChangeTextColor}
+                      />
+                    </HoverCardContent>
+                  </HoverCard>
+                </div>
+
+                <div className="flex items-center justify-between gap-8">
+                  <p>Text Stroke color</p>
+                  <HoverCard>
+                    <HoverCardTrigger>
+                      <div
+                        className="h-6 w-10 rounded-md"
+                        style={{
+                          backgroundColor: toStyleSheetSupportedColorFormat(
+                            state.text.strokeColor
+                          ),
+                          border: "0.5px solid gray"
+                        }}></div>
+                    </HoverCardTrigger>
+                    <HoverCardContent side="bottom" align="start">
+                      <Colorful
+                        color={state.text.strokeColor}
+                        onChange={handleOnChangeTextStrokeColor}
+                      />
+                    </HoverCardContent>
+                  </HoverCard>
+                </div>
+
+                <div className="flex items-center justify-between gap-8">
+                  <p>Stroke Weight</p>
+                  <ButtonGroup className="h-fit cursor-pointer">
+                    <Button
+                      variant="outline"
+                      onClick={handleOnChangeStrokeWeight}
+                      data-op="increase">
+                      +
+                    </Button>
+                    <Button variant="outline">{state.text.strokeWeight}</Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleOnChangeStrokeWeight}
+                      data-op="decrease">
+                      -
+                    </Button>
+                  </ButtonGroup>
                 </div>
 
                 <Separator className="my-3" />

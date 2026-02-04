@@ -1,5 +1,5 @@
 import { STORAGE_KEY_CONFIG } from "@/lib/storage"
-import type { TColor } from "@/types"
+import type { HsvaColor } from "@uiw/react-color"
 import {
   createContext,
   useContext,
@@ -17,7 +17,7 @@ type SubtitleContextReducerStateActions =
     }
   | {
       type: "update-bg-color"
-      color: TColor
+      color: HsvaColor
     }
   | {
       type: "update-visiblity"
@@ -31,7 +31,17 @@ type SubtitleContextReducerStateActions =
     }
   | {
       type: "update-text-color"
-      color: TColor
+      color: HsvaColor
+    }
+  | {
+      type: "update-text-stroke-color"
+      color: HsvaColor
+    }
+  | {
+      type: "increase-stroke-weight"
+    }
+  | {
+      type: "decrease-stroke-weight"
     }
   | {
       type: "set-target-tab"
@@ -45,16 +55,19 @@ type SubtitleContextState = {
 }
 
 export type SubtitleContextReducerState = {
+  showSubtitles: boolean
+  tab?: chrome.tabs.Tab
   position: {
     x: number
     y: number
   }
-  color: TColor
-  backgroundColor?: TColor
-  fontSize: number
-  textStroke?: TColor
-  tab?: chrome.tabs.Tab
-  showSubtitles: boolean
+  text: {
+    color: HsvaColor
+    size: number
+    backgroundColor?: HsvaColor
+    strokeWeight?: number
+    strokeColor?: HsvaColor
+  }
 }
 
 const intialReducerState = (): SubtitleContextReducerState => ({
@@ -62,9 +75,29 @@ const intialReducerState = (): SubtitleContextReducerState => ({
     x: 0,
     y: 0
   },
-  color: "#ffff00",
-  fontSize: 20,
-  showSubtitles: false
+  text: {
+    color: {
+      a: 1,
+      h: 60,
+      s: 100,
+      v: 100
+    },
+    backgroundColor: {
+      a: 0.4,
+      h: 0,
+      s: 0,
+      v: 0
+    },
+    strokeColor: {
+      a: 0,
+      h: 0,
+      s: 0,
+      v: 0
+    },
+    strokeWeight: 0.5,
+    size: 20
+  },
+  showSubtitles: true
 })
 
 const RawContext = createContext<SubtitleContextState>({
@@ -85,24 +118,68 @@ const reducer = (
         showSubtitles: actions.showSubtitle
       }
     case "decrease-fontsize":
+      if (prevstate.text.size === 14) return prevstate
       return {
         ...prevstate,
-        fontSize: prevstate.fontSize - 1
+        text: {
+          ...prevstate.text,
+          size: prevstate.text.size - 1
+        }
       }
     case "increase-fontsize":
+      if (prevstate.text.size === 50) return prevstate
       return {
         ...prevstate,
-        fontSize: prevstate.fontSize + 1
+        text: {
+          ...prevstate.text,
+          size: prevstate.text.size + 1
+        }
       }
     case "update-bg-color":
       return {
         ...prevstate,
-        backgroundColor: actions.color
+        text: {
+          ...prevstate.text,
+          backgroundColor: actions.color
+        }
+      }
+    case "update-text-stroke-color":
+      return {
+        ...prevstate,
+        text: {
+          ...prevstate.text,
+          strokeColor: actions.color
+        }
+      }
+    case "increase-stroke-weight":
+      if (prevstate.text.strokeWeight === 5) return prevstate
+      return {
+        ...prevstate,
+        text: {
+          ...prevstate.text,
+          strokeWeight: parseFloat(
+            (prevstate.text.strokeWeight + 0.1).toPrecision(2)
+          )
+        }
+      }
+    case "decrease-stroke-weight":
+      if (prevstate.text.strokeWeight === 0) return prevstate
+      return {
+        ...prevstate,
+        text: {
+          ...prevstate.text,
+          strokeWeight: parseFloat(
+            (prevstate.text.strokeWeight - 0.1).toPrecision(2)
+          )
+        }
       }
     case "update-text-color":
       return {
         ...prevstate,
-        color: actions.color
+        text: {
+          ...prevstate.text,
+          color: actions.color
+        }
       }
     case "set-target-tab":
       return {

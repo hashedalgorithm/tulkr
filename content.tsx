@@ -16,6 +16,7 @@ import ExtensionLocalStorage, {
   STORAGE_KEY_IS_WORKER_ACTIVE
 } from "@/lib/storage"
 import { findLastCueStartingBeforeOrAt, parseSubtitles } from "@/lib/subs"
+import { toStyleSheetSupportedColorFormat } from "@/lib/utils"
 import cssText from "data-text:~globals.css"
 import type { PlasmoCSConfig } from "plasmo"
 import {
@@ -275,10 +276,13 @@ const ContentUI = () => {
     if (!subtitleConfig) return defaultTextCssProperties
     return {
       ...defaultTextCssProperties,
-      color: subtitleConfig.color,
-      fontSize: `${subtitleConfig.fontSize}px`,
-      backgroundColor: subtitleConfig.backgroundColor,
-      display: subtitleConfig.showSubtitles ? "block" : "none"
+      fontSize: `${subtitleConfig.text.size}px`,
+      display: subtitleConfig.showSubtitles ? "block" : "none",
+      color: toStyleSheetSupportedColorFormat(subtitleConfig.text.color),
+      backgroundColor: toStyleSheetSupportedColorFormat(
+        subtitleConfig.text.backgroundColor
+      ),
+      WebkitTextStroke: `${subtitleConfig.text.strokeWeight}px ${toStyleSheetSupportedColorFormat(subtitleConfig.text.strokeColor)}`
     }
   }, [subtitleConfig])
 

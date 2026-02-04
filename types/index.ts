@@ -4,5 +4,3 @@ export type TParsedSubtitle = {
   endAt: number
   text: string
 }
-
-export type TColor = `#${string}`
