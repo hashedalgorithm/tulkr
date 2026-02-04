@@ -118,11 +118,6 @@ const useSubtitles = (
   }, [video, parsedSubtitles, cueStartTimesSec, setCurrentCue])
 
   const animationLoop = useCallback(() => {
-    if (!showSubtitles) {
-      stopLoopAndSyncOnce()
-      return
-    }
-
     syncTextToCurrentTime()
 
     if (!video.paused && !video.ended) {
@@ -147,6 +142,7 @@ const useSubtitles = (
 
   useEffect(() => {
     if (!video || !parsedSubtitles || !cueStartTimesSec) return
+    if (!showSubtitles) return
 
     const onPlay = () => startLoopIfNeeded()
     const onPause = () => stopLoopAndSyncOnce()
