@@ -26,7 +26,9 @@ const ActiveSessions = () => {
   }
 
   return (
-    <div onClick={handleOnClickSessionCard} className="flex flex-col gap-4">
+    <div
+      onClick={handleOnClickSessionCard}
+      className="flex h-96 flex-col gap-4 overflow-scroll">
       {Object.values(state.sessions).map((session) => (
         <SessionCard
           key={`active-sessions.session-card.${session.sessionId}`}
@@ -35,6 +37,7 @@ const ActiveSessions = () => {
           tabTitle={session.tabTitle}
           tabFaviconUrl={session.tabFaviconUrl}
           fileName={session.fileName}
+          sessionStatus={session.sessionStatus}
         />
       ))}
     </div>
