@@ -96,7 +96,7 @@ const AddSession = () => {
   }, [])
 
   return (
-    <div className="w-72">
+    <div className="w-80">
       <div className="mb-4 flex w-full flex-col justify-between gap-2">
         <div className="">
           <p className="font-medium">Choose Tab</p>

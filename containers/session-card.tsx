@@ -16,7 +16,7 @@ const SessionCard = ({
   sessionId
 }: SessionCardProps) => {
   return (
-    <div className="flex w-full justify-between rounded-md border border-secondary px-8 py-5">
+    <div className="flex w-80 items-center justify-between gap-8 rounded-md border border-secondary px-4 py-3">
       <div className="flex">
         <img src={tabFaviconUrl} className="h-12 w-12 rounded-full" />
         <div className="flex flex-col gap-0">
