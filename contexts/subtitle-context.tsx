@@ -1,7 +1,19 @@
-import { STORAGE_KEY_CONFIG } from "@/lib/storage"
+import {
+  sendMessageInRuntime,
+  type TMessageBody,
+  type TPOPUP_PAYLOAD_REQ_GET_ACTIVE_SESSIONS,
+  type TPopupMessageActions,
+  type TWORKER_PAYLOAD_RES_GET_ACTIVE_SESSIONS,
+  type TWORKER_PAYLOAD_RES_INIT,
+  type TWorkerMessageActions
+} from "@/lib/message"
+import { STORAGE_KEY_CONFIG, STORAGE_KEY_IS_WORKER_ACTIVE } from "@/lib/storage"
+import type { TSession, TSessionStatus } from "@/types"
 import type { HsvaColor } from "@uiw/react-color"
+import { omit } from "lodash"
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useReducer,
@@ -14,6 +26,10 @@ type SubtitleContextReducerStateActions =
   | {
       type: "sync"
       config: SubtitleContextReducerState
+    }
+  | {
+      type: "set-worker-status"
+      status: boolean
     }
   | {
       type: "update-bg-color"
@@ -44,8 +60,20 @@ type SubtitleContextReducerStateActions =
       type: "decrease-stroke-weight"
     }
   | {
-      type: "set-target-tab"
-      tab: chrome.tabs.Tab
+      type: "add-session"
+      session: TSession
+    }
+  | {
+      type: "add-sessions"
+      sessions: Record<string, TSession>
+    }
+  | {
+      type: "remove-session"
+      sessionId: string
+    }
+  | {
+      type: "update-session-status"
+      status: TSessionStatus
     }
 
 type SubtitleContextProps = PropsWithChildren
@@ -56,7 +84,7 @@ type SubtitleContextState = {
 
 export type SubtitleContextReducerState = {
   showSubtitles: boolean
-  tab?: chrome.tabs.Tab
+  sessions: Record<string, TSession>
   position: {
     x: number
     y: number
@@ -68,6 +96,7 @@ export type SubtitleContextReducerState = {
     strokeWeight?: number
     strokeColor?: HsvaColor
   }
+  isWorkerReady: boolean
 }
 
 const intialReducerState = (): SubtitleContextReducerState => ({
@@ -75,6 +104,8 @@ const intialReducerState = (): SubtitleContextReducerState => ({
     x: 0,
     y: 0
   },
+  sessions: {},
+  isWorkerReady: false,
   text: {
     color: {
       a: 1,
@@ -112,6 +143,11 @@ const reducer = (
   switch (actions.type) {
     case "sync":
       return actions.config
+    case "set-worker-status":
+      return {
+        ...prevstate,
+        isWorkerReady: actions.status
+      }
     case "update-visiblity":
       return {
         ...prevstate,
@@ -181,11 +217,30 @@ const reducer = (
           color: actions.color
         }
       }
-    case "set-target-tab":
+    case "add-sessions":
       return {
         ...prevstate,
-        tab: actions.tab
+        sessions: {
+          ...prevstate.sessions,
+          ...actions.sessions
+        }
       }
+    case "add-session":
+      return {
+        ...prevstate,
+        sessions: {
+          ...prevstate.sessions,
+          [actions.session.sessionId]: actions.session
+        }
+      }
+    case "remove-session": {
+      const sessions = prevstate.sessions
+      delete sessions?.[actions.sessionId]
+      return {
+        ...prevstate,
+        sessions
+      }
+    }
     default:
       return prevstate
   }
@@ -198,15 +253,50 @@ export const useSubtitleContextState = () => ({
 })
 
 const SubtitleContext = ({ children }: SubtitleContextProps) => {
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLocalStorageLoading, setIsLocalStorageLoading] = useState(false)
 
   const [state, dispatch] = useReducer(reducer, intialReducerState())
+
+  const listnerOnMessage = useCallback(
+    (message: TMessageBody<TWorkerMessageActions>) => {
+      if (message.from !== "worker") return
+
+      switch (message.type) {
+        case "res:session:get-active-sessions": {
+          const sessions =
+            message.payload as TWORKER_PAYLOAD_RES_GET_ACTIVE_SESSIONS
+          dispatch({
+            type: "add-sessions",
+            sessions
+          })
+
+          return
+        }
+        case "res:session:init": {
+          const session = message.payload as TWORKER_PAYLOAD_RES_INIT
+          dispatch({
+            type: "add-session",
+            session
+          })
+        }
+        default:
+          return
+      }
+    },
+    []
+  )
+
+  useEffect(() => {
+    chrome.runtime.onMessage.addListener(listnerOnMessage)
+
+    return chrome.runtime.onMessage.removeListener(listnerOnMessage)
+  }, [listnerOnMessage])
 
   useEffect(() => {
     chrome.storage.local.get(
       STORAGE_KEY_CONFIG,
       (result: SubtitleContextReducerState) => {
-        setIsLoading(true)
+        setIsLocalStorageLoading(true)
 
         if (result[STORAGE_KEY_CONFIG]) {
           dispatch({
@@ -215,20 +305,47 @@ const SubtitleContext = ({ children }: SubtitleContextProps) => {
           })
         }
 
-        setIsLoading(false)
+        setIsLocalStorageLoading(false)
       }
     )
-  }, [dispatch])
+  }, [])
 
   useEffect(() => {
-    if (isLoading) return
+    if (isLocalStorageLoading) return
 
-    chrome.storage.local.set({ [STORAGE_KEY_CONFIG]: state })
-  }, [state, isLoading])
+    chrome.storage.local.set({
+      [STORAGE_KEY_CONFIG]: omit(state, "isWorkerReady")
+    })
+  }, [state, isLocalStorageLoading])
+
+  useEffect(() => {
+    if (state.isWorkerReady) return
+
+    chrome.storage.local.get(STORAGE_KEY_IS_WORKER_ACTIVE).then((value) => {
+      dispatch({
+        type: "set-worker-status",
+        status: !!value
+      })
+    })
+  }, [state.isWorkerReady])
+
+  useEffect(() => {
+    if (!state.isWorkerReady) return
+
+    sendMessageInRuntime<
+      TPopupMessageActions,
+      TPOPUP_PAYLOAD_REQ_GET_ACTIVE_SESSIONS
+    >({
+      type: "req:session:get-active-sessions",
+      from: "popup",
+      to: "worker",
+      payload: {}
+    })
+  }, [state.isWorkerReady])
 
   return (
     <RawContext.Provider value={{ state, dispatch }}>
-      {children}
+      <main className="w-fit">{children}</main>
     </RawContext.Provider>
   )
 }

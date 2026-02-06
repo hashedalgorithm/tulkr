@@ -1,13 +1,12 @@
 import type { SubtitleContextReducerState } from "@/contexts/subtitle-context"
-import { type TSession } from "@/lib/indexed-db"
 import {
   sendMessageInRuntime,
-  type TCONTENT_PAYLOAD_REQ_GET_ACTIVE,
+  type TCONTENT_PAYLOAD_REQ_GET_ACTIVE_SESSION,
   type TContentMessageActions,
   type TMessageBody,
   type TWORKER_PAYLOAD_REQ_END,
   type TWORKER_PAYLOAD_REQ_INIT,
-  type TWORKER_PAYLOAD_RES_GET_ACTIVE,
+  type TWORKER_PAYLOAD_RES_GET_ACTIVE_SESSION,
   type TWORKER_PAYLOAD_RES_GET_TABID,
   type TWorkerMessageActions
 } from "@/lib/message"
@@ -17,6 +16,7 @@ import ExtensionLocalStorage, {
 } from "@/lib/storage"
 import { findLastCueStartingBeforeOrAt, parseSubtitles } from "@/lib/subs"
 import { toStyleSheetSupportedColorFormat } from "@/lib/utils"
+import type { TSession } from "@/types"
 import cssText from "data-text:~globals.css"
 import type { PlasmoCSConfig } from "plasmo"
 import {
@@ -73,8 +73,8 @@ const useSubtitles = (
 
   const parsedSubtitles = useMemo(() => {
     if (!currentSession) return []
-    return parseSubtitles(currentSession?.rawSubtitles?.raw)
-  }, [currentSession?.rawSubtitles?.raw])
+    return parseSubtitles(currentSession?.fileRawText)
+  }, [currentSession?.fileRawText])
 
   const cueStartTimesSec = useMemo(() => {
     if (parsedSubtitles.length === 0) return undefined
@@ -301,7 +301,7 @@ const ContentUI = () => {
           const session = message.payload as TWORKER_PAYLOAD_REQ_INIT
           setCurrentSession(session)
 
-          setCurrentCue(defaultSessionCue(session.rawSubtitles.fileName))
+          setCurrentCue(defaultSessionCue(session.fileName))
           return
         }
         case "req:session:end": {
@@ -312,13 +312,14 @@ const ContentUI = () => {
           setCurrentCue(placeholderCue)
           return
         }
-        case "res:session:get-active": {
-          const session = message.payload as TWORKER_PAYLOAD_RES_GET_ACTIVE
+        case "res:session:get-active-session": {
+          const session =
+            message.payload as TWORKER_PAYLOAD_RES_GET_ACTIVE_SESSION
 
           setCurrentSession(session)
           if (!session) return
 
-          setCurrentCue(defaultSessionCue(session.rawSubtitles.fileName))
+          setCurrentCue(defaultSessionCue(session.fileName))
           return
         }
         case "res:tab-id:get": {
@@ -382,9 +383,9 @@ const ContentUI = () => {
 
     sendMessageInRuntime<
       TContentMessageActions,
-      TCONTENT_PAYLOAD_REQ_GET_ACTIVE
+      TCONTENT_PAYLOAD_REQ_GET_ACTIVE_SESSION
     >({
-      type: "req:session:get-active",
+      type: "req:session:get-active-session",
       from: "content",
       to: "worker",
       payload: {
@@ -409,17 +410,19 @@ const ContentUI = () => {
   useEffect(() => {
     chrome.storage.local.onChanged.addListener(listnerExtensionLocalStorage)
 
+    return () =>
+      chrome.storage.local.onChanged.removeListener(
+        listnerExtensionLocalStorage
+      )
+  }, [listnerExtensionLocalStorage])
+
+  useEffect(() => {
     storage
       .get<SubtitleContextReducerState>(STORAGE_KEY_CONFIG)
       .then((value) => {
         setSubtitleConfig(value)
       })
-
-    return () =>
-      chrome.storage.local.onChanged.removeListener(
-        listnerExtensionLocalStorage
-      )
-  }, [listnerExtensionLocalStorage, storage, subtitleConfig])
+  }, [storage])
 
   if (!isWorkerReady || !currentSession?.tabId || !tabId) return <></>
   if (currentSession?.tabId !== tabId) return <></>

@@ -1,21 +1,25 @@
-import IndexedDB, { type TSession } from "@/lib/indexed-db"
+import IndexedDB from "@/lib/indexed-db"
 import {
   sendMessageInRuntime,
   sendMessageToTab,
-  type TCONTENT_PAYLOAD_REQ_GET_ACTIVE,
+  type TCONTENT_PAYLOAD_REQ_GET_ACTIVE_SESSION,
   type TContentMessageActions,
   type TMessageBody,
   type TPOPUP_PAYLOAD_REQ_END,
   type TPOPUP_PAYLOAD_REQ_INIT,
   type TPopupMessageActions,
   type TWORKER_PAYLOAD_REQ_END,
-  type TWORKER_PAYLOAD_RES_GET_ACTIVE,
+  type TWORKER_PAYLOAD_REQ_INIT,
+  type TWORKER_PAYLOAD_RES_GET_ACTIVE_SESSION,
+  type TWORKER_PAYLOAD_RES_GET_ACTIVE_SESSIONS,
   type TWORKER_PAYLOAD_RES_GET_TABID,
+  type TWORKER_PAYLOAD_RES_INIT,
   type TWorkerMessageActions
 } from "@/lib/message"
 import ExtensionLocalStorage, {
   STORAGE_KEY_IS_WORKER_ACTIVE
 } from "@/lib/storage"
+import type { TSession } from "@/types"
 import { uniqueId } from "lodash"
 
 const indexdb = new IndexedDB()
@@ -29,42 +33,56 @@ const onMessageListner = async (
 
   switch (message.type) {
     case "req:session:init": {
+      console.log("[+] : popup requesting init")
       const payload = message.payload as TPOPUP_PAYLOAD_REQ_INIT
 
-      if (!payload.rawSubtitles || !payload.tabId) return
+      if (
+        !payload.fileName ||
+        !payload.fileRawText ||
+        !payload.fileSize ||
+        !payload.tabFaviconUrl ||
+        !payload.tabTitle ||
+        !payload.tabId ||
+        !payload.tabUrl
+      )
+        return
 
       const session = {
         sessionId: uniqueId("SESS_"),
-        lastUpdatedAt: new Date().toISOString(),
-        status: "active",
+        sessionLastUpdatedAt: new Date().toISOString(),
+        sessionCreatedAt: new Date().toISOString(),
+        sessionStatus: "active",
         ...payload
       } satisfies TSession
 
       await indexdb.insert(session)
 
-      await sendMessageToTab<TWORKER_PAYLOAD_RES_GET_ACTIVE>(payload.tabId, {
-        type: "res:session:get-active",
+      await sendMessageToTab<TWORKER_PAYLOAD_REQ_INIT>(payload.tabId, {
+        type: "req:session:init",
         from: "worker",
         to: "content",
         payload: session
       })
+
       await sendMessageInRuntime<
         TWorkerMessageActions,
-        TWORKER_PAYLOAD_RES_GET_ACTIVE
+        TWORKER_PAYLOAD_RES_INIT
       >({
-        type: "res:session:get-active",
+        type: "res:session:init",
         from: "worker",
         to: "popup",
         payload: session
       })
       return
     }
+
     case "req:session:end": {
       const payload = message.payload as TPOPUP_PAYLOAD_REQ_END
 
       if (!payload.sessionId || !payload.tabId) return
 
       await indexdb.delete(payload.sessionId)
+
       await sendMessageToTab<TWORKER_PAYLOAD_REQ_END>(payload.tabId, {
         type: "req:session:end",
         from: "worker",
@@ -73,38 +91,48 @@ const onMessageListner = async (
       })
       return
     }
-    case "req:session:get-active": {
-      const payload = message.payload as TCONTENT_PAYLOAD_REQ_GET_ACTIVE
+
+    case "req:session:get-active-session": {
+      if (message.from !== "content") return
+      const payload = message.payload as TCONTENT_PAYLOAD_REQ_GET_ACTIVE_SESSION
 
       if (!payload.tabId) return
 
       const resp = await indexdb.getWithIndex("tabId", payload.tabId)
       const session = resp.at(0)
 
-      if (message.from === "popup") {
-        return await sendMessageInRuntime<
-          TWorkerMessageActions,
-          TWORKER_PAYLOAD_RES_GET_ACTIVE
-        >({
-          type: "res:session:get-active",
+      return await sendMessageToTab<TWORKER_PAYLOAD_RES_GET_ACTIVE_SESSION>(
+        payload.tabId,
+        {
+          type: "res:session:get-active-session",
           from: "worker",
-          to: "popup",
+          to: "content",
           payload: session
-        })
-      }
-      if (message.from === "content") {
-        return await sendMessageToTab<TWORKER_PAYLOAD_RES_GET_ACTIVE>(
-          payload.tabId,
-          {
-            type: "res:session:get-active",
-            from: "worker",
-            to: "content",
-            payload: session
-          }
-        )
-      }
+        }
+      )
+    }
 
-      return
+    case "req:session:get-active-sessions": {
+      if (message.from !== "popup") return
+      console.log("[+] : popup requesting active sessions")
+
+      const resp = await indexdb.getAll()
+
+      return await sendMessageInRuntime<
+        TWorkerMessageActions,
+        TWORKER_PAYLOAD_RES_GET_ACTIVE_SESSIONS
+      >({
+        type: "res:session:get-active-sessions",
+        from: "worker",
+        to: "popup",
+        payload: resp.reduce(
+          (accumulator, currentSession) => {
+            accumulator[currentSession.sessionId] = currentSession
+            return accumulator
+          },
+          {} as Record<string, TSession>
+        )
+      })
     }
 
     case "req:tab-id:get": {
@@ -140,6 +168,7 @@ function main() {
     .catch((error) => {
       console.error(error)
       chrome.runtime.onMessage.removeListener(onMessageListner)
+      storage.set(STORAGE_KEY_IS_WORKER_ACTIVE, false)
     })
 }
 
