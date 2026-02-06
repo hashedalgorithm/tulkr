@@ -1,17 +1,4 @@
-type TFile = {
-  raw: string
-  fileName: string
-  size: number
-}
-type TSessionStatus = "idle" | "active" | "playing" | "paused"
-export type TSession = {
-  sessionId: string
-  rawSubtitles: TFile
-  lastUpdatedAt: string
-  status: TSessionStatus
-  tabId: number
-  url: string
-}
+import type { TSession } from "@/types"
 
 type TDBStatus = "ready" | "error" | "initiating"
 class IndexedDB {
@@ -40,10 +27,12 @@ class IndexedDB {
             { unique: true }
           )
         }
-        if (!store.indexNames.contains("status" satisfies keyof TSession)) {
+        if (
+          !store.indexNames.contains("sessionStatus" satisfies keyof TSession)
+        ) {
           store.createIndex(
-            "status" satisfies keyof TSession,
-            "status" satisfies keyof TSession,
+            "sessionStatus" satisfies keyof TSession,
+            "sessionStatus" satisfies keyof TSession,
             { unique: false }
           )
         }
@@ -87,6 +76,24 @@ class IndexedDB {
         .get(sessionId)
 
       req.onsuccess = () => resolve(req.result as TSession)
+      req.onerror = () => reject(this.toError(req.error))
+
+      req.transaction.onabort = () => reject(this.toError(transaction.error))
+      req.transaction.onerror = () => reject(this.toError(transaction.error))
+    })
+  }
+  async getAll(): Promise<TSession[]> {
+    await this.ensureReady()
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction(
+        this.INDEXED_DB_STORE_NAME,
+        "readonly"
+      )
+      const req = transaction.objectStore(this.INDEXED_DB_STORE_NAME).getAll()
+
+      req.onsuccess = () =>
+        resolve(req.result.map((session) => session as TSession))
       req.onerror = () => reject(this.toError(req.error))
 
       req.transaction.onabort = () => reject(this.toError(transaction.error))
