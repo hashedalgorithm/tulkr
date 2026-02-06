@@ -69,7 +69,7 @@ export const sendMessageInRuntime = async <
     await chrome.runtime.sendMessage(message)
   } catch (raw: unknown) {
     const error = raw as Error
-    console.error(error.message, error.stack)
+    console.error(error)
   }
 }
 
@@ -81,6 +81,6 @@ export const sendMessageToTab = async <Payload = unknown>(
     await chrome.tabs.sendMessage(tabId, message)
   } catch (raw: unknown) {
     const error = raw as Error
-    console.error(error.message)
+    console.error(error)
   }
 }

@@ -287,10 +287,22 @@ const SubtitleContext = ({ children }: SubtitleContextProps) => {
   )
 
   useEffect(() => {
+    if (!state.isWorkerReady) return
+
     chrome.runtime.onMessage.addListener(listnerOnMessage)
 
-    return chrome.runtime.onMessage.removeListener(listnerOnMessage)
-  }, [listnerOnMessage])
+    sendMessageInRuntime<
+      TPopupMessageActions,
+      TPOPUP_PAYLOAD_REQ_GET_ACTIVE_SESSIONS
+    >({
+      type: "req:session:get-active-sessions",
+      from: "popup",
+      to: "worker",
+      payload: {}
+    })
+
+    return () => chrome.runtime.onMessage.removeListener(listnerOnMessage)
+  }, [state.isWorkerReady, listnerOnMessage])
 
   useEffect(() => {
     chrome.storage.local.get(
@@ -326,20 +338,6 @@ const SubtitleContext = ({ children }: SubtitleContextProps) => {
         type: "set-worker-status",
         status: !!value
       })
-    })
-  }, [state.isWorkerReady])
-
-  useEffect(() => {
-    if (!state.isWorkerReady) return
-
-    sendMessageInRuntime<
-      TPopupMessageActions,
-      TPOPUP_PAYLOAD_REQ_GET_ACTIVE_SESSIONS
-    >({
-      type: "req:session:get-active-sessions",
-      from: "popup",
-      to: "worker",
-      payload: {}
     })
   }, [state.isWorkerReady])
 
