@@ -147,6 +147,22 @@ const SubtitleControls = () => {
     })
   }
 
+  const handleOnChangeCustomOffset: ChangeEventHandler<HTMLInputElement> = (
+    e
+  ) => {
+    const axis = e.currentTarget.getAttribute("data-axis")
+    const value = parseFloat(e.currentTarget.value)
+
+    if (isNaN(value)) return
+
+    if (!axis || (axis !== "x" && axis !== "y")) return
+
+    dispatch({
+      type: axis === "x" ? "set-x-offset" : "set-y-offset",
+      offset: value
+    })
+  }
+
   if (!state.isWorkerReady)
     return (
       <div className="flex h-max w-72 items-center justify-center">
@@ -362,7 +378,12 @@ const SubtitleControls = () => {
                     data-axis="x">
                     <Plus />
                   </Button>
-                  <Input className="text-center" value={state.offset.x} />
+                  <Input
+                    className="text-center"
+                    value={state.offset.x}
+                    data-axis="x"
+                    onChange={handleOnChangeCustomOffset}
+                  />
                   <Button
                     variant="outline"
                     onClick={handleOnClickAxisOffset}
@@ -382,7 +403,12 @@ const SubtitleControls = () => {
                     data-axis="y">
                     <Plus />
                   </Button>
-                  <Input className="text-center" value={state.offset.y} />
+                  <Input
+                    className="text-center"
+                    value={state.offset.y}
+                    data-axis="y"
+                    onChange={handleOnChangeCustomOffset}
+                  />
                   <Button
                     variant="outline"
                     onClick={handleOnClickAxisOffset}
