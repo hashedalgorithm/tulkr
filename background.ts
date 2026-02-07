@@ -162,7 +162,7 @@ const onMessageListner = async (
 
         if (!payload.sessionId) return
 
-        const updated = await indexdb.updateMultiple(payload.sessionId, {
+        const updatedSession = await indexdb.updateMultiple(payload.sessionId, {
           ...payload,
           sessionLastUpdatedAt: new Date().toISOString()
         })
@@ -174,8 +174,20 @@ const onMessageListner = async (
           type: "res:session:update",
           from: "worker",
           to: "popup",
-          payload: updated
+          payload: updatedSession
         })
+
+        if (payload.fileRawText && payload.fileSize && payload.fileName) {
+          await sendMessageToTab<TWORKER_PAYLOAD_REQ_INIT>(
+            updatedSession.tabId,
+            {
+              type: "req:session:init",
+              from: "worker",
+              to: "content",
+              payload: updatedSession
+            }
+          )
+        }
         return
       }
       default: {
