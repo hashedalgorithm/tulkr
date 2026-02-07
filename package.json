@@ -2,7 +2,7 @@
   "name": "tulkr",
   "displayName": "Tulkr",
   "version": "1.0",
-  "description": "Upload your own .srt subtitle file in the extension popup, choose the tab you want, and Tulkr will display subtitles as an on-screen overlay synced to the video. You can run multiple subtitle sessions in different tabs, and adjust appearance settings such as font size, text color, background, and stroke. For each session you can also fine-tune timing with a delay/offset control to keep subtitles perfectly aligned.",
+  "description": "Tulkr lets you upload your own .srt subtitles and display them as an on-screen overlay synced to videos in any chosen browser tab.",
   "author": "hashedalgorithm",
   "scripts": {
     "dev": "plasmo dev",
