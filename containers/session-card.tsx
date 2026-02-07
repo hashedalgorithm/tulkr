@@ -137,7 +137,7 @@ const SessionCard = ({
             </Badge>
           </div>
           <div className="flex flex-col gap-0">
-            <p className="text-md font-medium">
+            <p className="text-md whitespace-nowrap font-medium">
               {truncate(tabTitle, {
                 length: 20
               })}
