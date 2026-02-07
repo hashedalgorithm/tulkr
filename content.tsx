@@ -88,7 +88,7 @@ const useSubtitles = (
   const syncTextToCurrentTime = useCallback(() => {
     if (!video || !cueStartTimesSec) return
 
-    const timeSec = video.currentTime
+    const timeSec = video.currentTime + (currentSession?.delay ?? 0)
 
     const candidateIndex = findLastCueStartingBeforeOrAt(
       cueStartTimesSec,
