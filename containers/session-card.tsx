@@ -94,7 +94,7 @@ const SessionCard = ({
   const handleOnClickCard: MouseEventHandler<HTMLDivElement> = () => {
     dispatch({
       type: "set-selected-tab",
-      tabId
+      tabId: state.selectedTab === tabId ? undefined : tabId
     })
   }
 
