@@ -1,28 +1,42 @@
 import SessionCard from "@/containers/session-card"
 import { useSubtitleContext } from "@/contexts/subtitle-context"
+import {
+  sendMessageInRuntime,
+  type TPOPUP_PAYLOAD_REQ_END,
+  type TPopupMessageActions
+} from "@/lib/message"
 import { type MouseEventHandler } from "react"
 
 const ActiveSessions = () => {
-  const { state } = useSubtitleContext()
+  const { state, dispatch } = useSubtitleContext()
 
-  const handleOnClickSessionCard: MouseEventHandler<HTMLDivElement> = (e) => {
-    const target = e.target as HTMLDivElement
+  const handleOnClickSessionCard: MouseEventHandler<HTMLDivElement> = async (
+    e
+  ) => {
+    const target = e.target as HTMLButtonElement
 
-    if (!(target instanceof HTMLDivElement)) return
+    if (!(target instanceof HTMLButtonElement)) return
 
-    const tabId = target.getAttribute("data-tabId")?.toString()
-    const sessionId = target.getAttribute("data-sessionId")?.toString()
+    const tabId = target.getAttribute("data-tab-id")?.toString()
+    const sessionId = target.getAttribute("data-session-id")?.toString()
     const operation = target.getAttribute("data-op")?.toString()
 
-    if (
-      !tabId ||
-      !sessionId ||
-      !operation ||
-      (operation !== "edit" && operation !== "delete")
-    )
-      return
+    if (!tabId || !sessionId || !operation || operation !== "delete") return
 
-    console.log(tabId, sessionId, operation)
+    await sendMessageInRuntime<TPopupMessageActions, TPOPUP_PAYLOAD_REQ_END>({
+      type: "req:session:end",
+      from: "popup",
+      to: "worker",
+      payload: {
+        sessionId,
+        tabId: parseInt(tabId)
+      }
+    })
+    dispatch({
+      type: "remove-session",
+      sessionId
+    })
+    return
   }
 
   return (

@@ -5,6 +5,7 @@ import {
   type TPopupMessageActions,
   type TWORKER_PAYLOAD_RES_GET_ACTIVE_SESSIONS,
   type TWORKER_PAYLOAD_RES_INIT,
+  type TWORKER_PAYLOAD_RES_UPDATE,
   type TWorkerMessageActions
 } from "@/lib/message"
 import { STORAGE_KEY_CONFIG, STORAGE_KEY_IS_WORKER_ACTIVE } from "@/lib/storage"
@@ -61,6 +62,10 @@ type SubtitleContextReducerStateActions =
     }
   | {
       type: "add-session"
+      session: TSession
+    }
+  | {
+      type: "update-session"
       session: TSession
     }
   | {
@@ -233,6 +238,14 @@ const reducer = (
           [actions.session.sessionId]: actions.session
         }
       }
+    case "update-session":
+      return {
+        ...prevstate,
+        sessions: {
+          ...prevstate.sessions,
+          [actions.session.sessionId]: actions.session
+        }
+      }
     case "remove-session": {
       const sessions = prevstate.sessions
       delete sessions?.[actions.sessionId]
@@ -278,6 +291,16 @@ const SubtitleContext = ({ children }: SubtitleContextProps) => {
             type: "add-session",
             session
           })
+          return
+        }
+        case "res:session:update": {
+          const session = message.payload as TWORKER_PAYLOAD_RES_UPDATE
+
+          dispatch({
+            type: "update-session",
+            session
+          })
+          return
         }
         default:
           return

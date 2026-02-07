@@ -1,3 +1,4 @@
+import FileUploader, { type FileUploaderHandle } from "@/components/file-upload"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -23,17 +24,11 @@ type TFile = {
   fileRawText: string
 }
 const AddSession = () => {
-  const inputRef = useRef<HTMLInputElement>(null)
+  const fileUploaderRef = useRef<FileUploaderHandle>(null)
 
   const [file, setFile] = useState<TFile | undefined>()
   const [targetTab, setTargetTab] = useState<TTargetTab>()
   const [tabs, setTabs] = useState<chrome.tabs.Tab[]>([])
-
-  const handleOnClickUploadFile = () => {
-    if (!inputRef.current) return
-
-    inputRef.current.click()
-  }
 
   const handleOnClickAddSession = async () => {
     if (!file) return
@@ -85,6 +80,10 @@ const AddSession = () => {
       tabFaviconUrl: targetTab.favIconUrl,
       tabTitle: targetTab.title
     })
+  }
+
+  const handleOnClickUploadFile = () => {
+    fileUploaderRef.current?.triggerClick()
   }
 
   useEffect(() => {
@@ -140,14 +139,10 @@ const AddSession = () => {
           <span>Create Session</span>
         </Button>
       ) : (
-        <label className="block w-full">
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".srt"
-            className="hidden"
-            onChange={handleOnChangeFileInput}
-          />
+        <FileUploader
+          accept=".srt"
+          onChange={handleOnChangeFileInput}
+          ref={fileUploaderRef}>
           <Button
             size="lg"
             type="button"
@@ -157,7 +152,7 @@ const AddSession = () => {
             <CloudUpload className="h-5 w-5" />
             <span>{file ? `Upload New Subtitles` : `Upload Subtitles`}</span>
           </Button>
-        </label>
+        </FileUploader>
       )}
 
       <p className="my-6 text-center text-sm text-ring">

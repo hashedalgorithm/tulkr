@@ -184,6 +184,22 @@ class IndexedDB {
     return await this.insert({ ...existingValue, [key]: value })
   }
 
+  async updateMultiple(
+    sessionId: TSession["sessionId"],
+    value: Partial<TSession>
+  ): Promise<TSession> {
+    await this.ensureReady()
+
+    const existingValue = await this.get(sessionId)
+
+    if (!existingValue) {
+      console.error("Invalid sessionId!")
+      return
+    }
+
+    return await this.insert({ ...existingValue, ...value })
+  }
+
   toError(e: DOMException | null) {
     if (!e) return new Error("Unknown", { cause: "Unknown IndexedDB error" })
 

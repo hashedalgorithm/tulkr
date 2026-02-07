@@ -3,10 +3,12 @@ import type { TSession } from "@/types"
 export type TPopupMessageActions =
   | "req:session:get-active-sessions"
   | "req:session:init"
+  | "req:session:update"
   | "req:session:end"
 export type TWorkerMessageActions =
   | "res:session:get-active-sessions"
   | "res:session:get-active-session"
+  | "res:session:update"
   | "res:tab-id:get"
   | "req:session:init"
   | "res:session:init"
@@ -44,10 +46,15 @@ export type TPOPUP_PAYLOAD_REQ_INIT = Pick<
   | "fileName"
   | "fileSize"
 >
+export type TPOPUP_PAYLOAD_REQ_UPDATE = Pick<
+  TSession,
+  "fileRawText" | "fileName" | "fileSize" | "sessionId"
+>
 export type TPOPUP_PAYLOAD_REQ_END = Pick<TSession, "tabId" | "sessionId">
 
 // from worker to poup
 export type TWORKER_PAYLOAD_RES_INIT = TSession
+export type TWORKER_PAYLOAD_RES_UPDATE = TSession
 export type TWORKER_PAYLOAD_RES_GET_ACTIVE_SESSIONS = Record<string, TSession>
 
 // from worker to content

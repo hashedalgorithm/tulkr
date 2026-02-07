@@ -7,6 +7,7 @@ import {
   type TMessageBody,
   type TPOPUP_PAYLOAD_REQ_END,
   type TPOPUP_PAYLOAD_REQ_INIT,
+  type TPOPUP_PAYLOAD_REQ_UPDATE,
   type TPopupMessageActions,
   type TWORKER_PAYLOAD_REQ_END,
   type TWORKER_PAYLOAD_REQ_INIT,
@@ -35,7 +36,6 @@ const onMessageListner = async (
 
     switch (message.type) {
       case "req:session:init": {
-        console.log("[+] : popup requesting init")
         const payload = message.payload as TPOPUP_PAYLOAD_REQ_INIT
 
         if (
@@ -91,6 +91,7 @@ const onMessageListner = async (
           to: "content",
           payload
         })
+
         return
       }
 
@@ -116,7 +117,6 @@ const onMessageListner = async (
       }
       case "req:session:get-active-sessions": {
         if (message.from !== "popup") return
-        console.log("[+] : popup requesting active sessions")
 
         const resp = await indexdb.getAll()
 
@@ -132,6 +132,7 @@ const onMessageListner = async (
             {} as Record<string, TSession>
           )
         })
+        return
       }
 
       case "req:tab-id:get": {
@@ -148,6 +149,26 @@ const onMessageListner = async (
             }
           }
         )
+      }
+      case "req:session:update": {
+        if (message.from !== "popup") return
+
+        const payload = message.payload as TPOPUP_PAYLOAD_REQ_UPDATE
+
+        const updated = await indexdb.updateMultiple(payload.sessionId, {
+          fileName: payload.fileName,
+          fileRawText: payload.fileRawText,
+          fileSize: payload.fileSize,
+          sessionLastUpdatedAt: new Date().toISOString()
+        })
+
+        sendResponse({
+          type: "res:session:update",
+          from: "worker",
+          to: "popup",
+          payload: updated
+        })
+        return
       }
       default: {
         console.error("Invalid message request!")
