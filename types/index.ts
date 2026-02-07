@@ -5,7 +5,7 @@ export type TParsedSubtitle = {
   text: string
 }
 
-export type TSessionStatus = "idle" | "active" | "playing" | "paused"
+export type TSessionStatus = "active" | "playing" | "paused"
 export type TSession = {
   sessionId: string
   fileRawText: string
