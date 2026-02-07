@@ -5,7 +5,7 @@ import AddSession from "@/containers/add-session"
 import Header from "@/containers/header"
 import React, { useState } from "react"
 
-type TTabs = "add-session" | "active-sessions"
+export type TTabs = "add-session" | "active-sessions"
 
 const Sessions = () => {
   const [currentSection, setCurrentSection] = useState<TTabs>("add-session")
@@ -21,12 +21,12 @@ const Sessions = () => {
   }
 
   return (
-    <div className="flex w-96 flex-col gap-4 px-4 py-8">
+    <div className="flex w-96 flex-col gap-4 px-6 py-8">
       <Header />
       <Separator className="w-4/5" />
       <Tabs
         className="justify-end self-end"
-        defaultValue={currentSection}
+        value={currentSection}
         onValueChange={handleOnChangeSection}>
         <TabsList>
           <TabsTrigger value="add-session">Create</TabsTrigger>
@@ -34,7 +34,9 @@ const Sessions = () => {
         </TabsList>
       </Tabs>
       {currentSection === "add-session" && <AddSession />}
-      {currentSection === "active-sessions" && <ActiveSessions />}
+      {currentSection === "active-sessions" && (
+        <ActiveSessions setTab={setCurrentSection} />
+      )}
     </div>
   )
 }
