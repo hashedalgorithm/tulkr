@@ -101,14 +101,14 @@ const SessionCard = ({
   return (
     <div
       className={cn(
-        "relative flex w-full cursor-pointer flex-col rounded-md border border-secondary px-4 py-5",
+        "relative flex w-full cursor-pointer flex-col rounded-md border border-secondary",
         {
           "border-primary": state.selectedTab === tabId
         }
       )}
       onClick={handleOnClickCard}>
       <Badge
-        className={cn("absolute right-4 top-4 w-fit px-1 py-1", {
+        className={cn("absolute right-3 top-2 w-fit px-1 py-1", {
           "bg-emerald-500 text-primary-foreground hover:bg-emerald-500/80":
             sessionStatus === "playing",
           "bg-secondary text-secondary-foreground hover:bg-secondary":
@@ -119,7 +119,7 @@ const SessionCard = ({
         <p>{startCase(sessionStatus)}</p>
       </Badge>
 
-      <div className="flex items-center justify-between gap-8">
+      <div className="flex items-center justify-between gap-8 px-4 py-5">
         <div className="flex items-center gap-3">
           <div className="relative h-14 w-14 rounded-full">
             <img
