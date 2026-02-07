@@ -161,6 +161,8 @@ const SubtitleControls = () => {
 
                 <Input
                   className="w-20"
+                  type="number"
+                  step={0.5}
                   value={selectedTab.delay}
                   onChange={handleOnChangeCustomDelay}
                 />
