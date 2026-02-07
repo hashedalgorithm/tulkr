@@ -1,10 +1,10 @@
-import { ClosedCaption } from "lucide-react"
+import logo from "data-base64:~assets/icon.png"
 
 const Header = () => {
   return (
     <div className="flex w-full flex-col items-center gap-1">
       <div className="flex items-center gap-2">
-        <ClosedCaption className="h-auto w-8" />
+        <img src={logo} className="h-auto w-8" />
         <h3 className="text-3xl font-medium">T&uacute;lkr</h3>
       </div>
       <p className="text-center text-sm text-ring">
