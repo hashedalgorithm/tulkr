@@ -148,7 +148,7 @@ const SubtitleControls = () => {
                 <div className="flex flex-1 flex-col gap-2">
                   <div className="flex w-full items-center justify-between">
                     <p>Delay</p>
-                    <p>{`${selectedTab.delay}s`}</p>
+                    <p>{`${selectedTab.delay} s`}</p>
                   </div>
                   <Slider
                     defaultValue={[selectedTab.delay]}
