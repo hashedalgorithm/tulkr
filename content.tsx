@@ -157,7 +157,6 @@ const useSubtitles = (
     video.addEventListener("ratechange", onRateChange)
     video.addEventListener("playing", onPlaying)
 
-    // Initial sync + start loop if already playing
     syncTextToCurrentTime()
     if (!video.paused && !video.ended) {
       startLoopIfNeeded()
@@ -282,6 +281,7 @@ const ContentUI = () => {
       backgroundColor: toStyleSheetSupportedColorFormat(
         subtitleConfig.text.backgroundColor
       ),
+      transform: `translate(${subtitleConfig.offset.x}px, ${subtitleConfig.offset.y}px)`,
       WebkitTextStroke: `${subtitleConfig.text.strokeWeight}px ${toStyleSheetSupportedColorFormat(subtitleConfig.text.strokeColor)}`
     }
   }, [subtitleConfig])
@@ -422,7 +422,7 @@ const ContentUI = () => {
       .then((value) => {
         setSubtitleConfig(value)
       })
-  }, [storage])
+  }, [])
 
   if (!isWorkerReady || !currentSession?.tabId || !tabId) return <></>
   if (currentSession?.tabId !== tabId) return <></>

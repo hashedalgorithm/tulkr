@@ -76,6 +76,14 @@ type SubtitleContextReducerStateActions =
       type: "set-selected-tab"
       tabId: number | undefined
     }
+  | {
+      type: "set-x-offset"
+      offset: number
+    }
+  | {
+      type: "set-y-offset"
+      offset: number
+    }
 
 type SubtitleContextProps = PropsWithChildren
 type SubtitleContextState = {
@@ -86,7 +94,7 @@ type SubtitleContextState = {
 export type SubtitleContextReducerState = {
   showSubtitles: boolean
   sessions: Record<string, TSession>
-  position: {
+  offset: {
     x: number
     y: number
   }
@@ -102,7 +110,7 @@ export type SubtitleContextReducerState = {
 }
 
 const intialReducerState = (): SubtitleContextReducerState => ({
-  position: {
+  offset: {
     x: 0,
     y: 0
   },
@@ -237,6 +245,23 @@ const reducer = (
         ...prevstate,
         selectedTab: actions.tabId
       }
+    case "set-x-offset":
+      return {
+        ...prevstate,
+        offset: {
+          ...prevstate.offset,
+          x: actions.offset
+        }
+      }
+    case "set-y-offset":
+      return {
+        ...prevstate,
+        offset: {
+          ...prevstate.offset,
+          y: actions.offset
+        }
+      }
+
     default:
       return prevstate
   }

@@ -29,7 +29,7 @@ import {
   Type,
   Zap
 } from "lucide-react"
-import { useMemo, type ChangeEventHandler } from "react"
+import { useMemo, type ChangeEventHandler, type MouseEventHandler } from "react"
 
 const SubtitleControls = () => {
   const { state, dispatch } = useSubtitleContext()
@@ -115,6 +115,7 @@ const SubtitleControls = () => {
 
     return await updateSessionDelay(delay)
   }
+
   const handleOnChangeCustomDelay: ChangeEventHandler<
     HTMLInputElement
   > = async (e) => {
@@ -124,6 +125,28 @@ const SubtitleControls = () => {
 
     return await updateSessionDelay(parseFloat(value))
   }
+
+  const handleOnClickAxisOffset: MouseEventHandler<HTMLButtonElement> = (e) => {
+    const operation = e.currentTarget.getAttribute("data-op")
+    const axis = e.currentTarget.getAttribute("data-axis")
+
+    if (
+      !axis ||
+      (axis !== "x" && axis !== "y") ||
+      !operation ||
+      (operation !== "add" && operation !== "sub")
+    )
+      return
+
+    dispatch({
+      type: axis === "x" ? "set-x-offset" : "set-y-offset",
+      offset:
+        operation === "add"
+          ? state.offset?.[axis] + 1
+          : state.offset?.[axis] - 1
+    })
+  }
+
   if (!state.isWorkerReady)
     return (
       <div className="flex h-max w-72 items-center justify-center">
@@ -332,14 +355,19 @@ const SubtitleControls = () => {
               <div className="flex flex-col gap-2">
                 <p>{`Horizontal (x-axis)`}</p>
                 <InputGroup>
-                  <Button variant="outline">
+                  <Button
+                    variant="outline"
+                    onClick={handleOnClickAxisOffset}
+                    data-op="add"
+                    data-axis="x">
                     <Plus />
                   </Button>
-                  <Input
-                    className="text-center"
-                    defaultValue={state.position.x}
-                  />
-                  <Button variant="outline">
+                  <Input className="text-center" value={state.offset.x} />
+                  <Button
+                    variant="outline"
+                    onClick={handleOnClickAxisOffset}
+                    data-op="sub"
+                    data-axis="x">
                     <Minus />
                   </Button>
                 </InputGroup>
@@ -347,14 +375,19 @@ const SubtitleControls = () => {
               <div className="flex flex-col gap-2">
                 <p>{`Vertical (y-axis)`}</p>
                 <InputGroup>
-                  <Button variant="outline">
+                  <Button
+                    variant="outline"
+                    onClick={handleOnClickAxisOffset}
+                    data-op="add"
+                    data-axis="y">
                     <Plus />
                   </Button>
-                  <Input
-                    className="text-center"
-                    defaultValue={state.position.y}
-                  />
-                  <Button variant="outline">
+                  <Input className="text-center" value={state.offset.y} />
+                  <Button
+                    variant="outline"
+                    onClick={handleOnClickAxisOffset}
+                    data-op="sub"
+                    data-axis="y">
                     <Minus />
                   </Button>
                 </InputGroup>
