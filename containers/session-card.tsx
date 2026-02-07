@@ -128,8 +128,10 @@ const SessionCard = ({
             />
             <Badge
               className={cn("absolute -bottom-2 right-0 w-fit text-xs", {
-                "bg-destructive/45 text-destructive-foreground": delay > 0,
-                "bg-emerald-700/45 text-primary-foreground": delay < 0,
+                "bg-destructive text-destructive-foreground hover:bg-destructive/80":
+                  delay > 0,
+                "bg-emerald-700 text-primary-foreground hover:bg-emerald-700/80":
+                  delay < 0,
                 hidden: delay === 0
               })}
               variant="default">
