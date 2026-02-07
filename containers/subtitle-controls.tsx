@@ -24,14 +24,15 @@ const SubtitleControls = () => {
     })
   }
 
-  const handleOnChangeFontSize: MouseEventHandler<HTMLButtonElement> = (e) => {
-    const operation = e.currentTarget.getAttribute("data-op")
+  const handleOnChangeFontSize = (value: number[]) => {
+    const size = value.at(0)
+    if (!size) return
 
-    if (!operation || (operation !== "increase" && operation !== "decrease"))
-      return
+    if (size > 50 || size < 14) return
 
     dispatch({
-      type: operation === "increase" ? "increase-fontsize" : "decrease-fontsize"
+      type: "update-fontsize",
+      size
     })
   }
 
@@ -56,146 +57,215 @@ const SubtitleControls = () => {
     })
   }
 
-  const handleOnChangeStrokeWeight: MouseEventHandler<HTMLButtonElement> = (
-    e
-  ) => {
-    const operation = e.currentTarget.getAttribute("data-op")
+  const handleOnChangeStrokeWeight = (value: number[]) => {
+    const weight = value.at(0)
 
-    if (!operation || (operation !== "increase" && operation !== "decrease"))
-      return
+    if (!weight) return
+    if (weight > 2 || weight < 0) return
 
     dispatch({
-      type:
-        operation === "increase"
-          ? "increase-stroke-weight"
-          : "decrease-stroke-weight"
+      type: "update-stroke-weight",
+      weight
     })
   }
 
-  // if (!state.isWorkerReady) return <Spinner />
+  if (!state.isWorkerReady)
+    return (
+      <div className="flex h-max w-72 items-center justify-center">
+        <Spinner />
+      </div>
+    )
 
   return (
-    <section className="mt-4">
-      <Separator className="my-4" />
+    <section className="mr-4 mt-4 h-full w-96 overflow-y-scroll rounded-md border px-6 py-6">
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-3">
+          <Settings className="h-5 w-5" />
+          <h3 className="text-lg font-semibold">Configuration</h3>
+        </div>
 
-      <Card>
-        <CardContent>
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between gap-8">
+        <Separator />
+
+        <div className="flex items-center justify-between gap-8">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-secondary p-2">
+              <Eye className="h-5 w-5 text-secondary-foreground" />
+            </div>
+
+            <div className="flex flex-col gap-0">
               <p>Show Subtitles</p>
-              <Switch
-                onCheckedChange={handleOnChangeVisibility}
-                checked={state.showSubtitles}
-              />
-            </div>
-
-            <div className="flex items-center justify-between gap-8">
-              <p>Font size</p>
-              <ButtonGroup className="h-fit cursor-pointer">
-                <Button
-                  variant="outline"
-                  onClick={handleOnChangeFontSize}
-                  data-op="increase">
-                  +
-                </Button>
-                <Button variant="outline">{state.text.size}</Button>
-                <Button
-                  variant="outline"
-                  onClick={handleOnChangeFontSize}
-                  data-op="decrease">
-                  -
-                </Button>
-              </ButtonGroup>
-            </div>
-
-            <div className="flex items-center justify-between gap-8">
-              <p>Background</p>
-
-              <HoverCard>
-                <HoverCardTrigger>
-                  <div
-                    className="h-6 w-10 rounded-md"
-                    style={{
-                      backgroundColor: toStyleSheetSupportedColorFormat(
-                        state.text.backgroundColor
-                      ),
-                      border: "0.5px solid gray"
-                    }}></div>
-                </HoverCardTrigger>
-                <HoverCardContent side="bottom" align="start">
-                  <Colorful
-                    color={state.text.backgroundColor}
-                    onChange={handleOnChangeBackgroundColor}
-                  />
-                </HoverCardContent>
-              </HoverCard>
-            </div>
-
-            <div className="flex items-center justify-between gap-8">
-              <p>Text color</p>
-              <HoverCard>
-                <HoverCardTrigger>
-                  <div
-                    className="h-6 w-10 rounded-md"
-                    style={{
-                      backgroundColor: toStyleSheetSupportedColorFormat(
-                        state.text.color
-                      ),
-                      border: "0.5px solid gray"
-                    }}></div>
-                </HoverCardTrigger>
-                <HoverCardContent side="bottom" align="start">
-                  <Colorful
-                    color={state.text.color}
-                    onChange={handleOnChangeTextColor}
-                  />
-                </HoverCardContent>
-              </HoverCard>
-            </div>
-
-            <div className="flex items-center justify-between gap-8">
-              <p>Text Stroke color</p>
-              <HoverCard>
-                <HoverCardTrigger>
-                  <div
-                    className="h-6 w-10 rounded-md"
-                    style={{
-                      backgroundColor: toStyleSheetSupportedColorFormat(
-                        state.text.strokeColor
-                      ),
-                      border: "0.5px solid gray"
-                    }}></div>
-                </HoverCardTrigger>
-                <HoverCardContent side="bottom" align="start">
-                  <Colorful
-                    color={state.text.strokeColor}
-                    onChange={handleOnChangeTextStrokeColor}
-                  />
-                </HoverCardContent>
-              </HoverCard>
-            </div>
-
-            <div className="flex items-center justify-between gap-8">
-              <p>Stroke Weight</p>
-              <ButtonGroup className="h-fit cursor-pointer">
-                <Button
-                  variant="outline"
-                  onClick={handleOnChangeStrokeWeight}
-                  data-op="increase">
-                  +
-                </Button>
-                <Button variant="outline">{state.text.strokeWeight}</Button>
-                <Button
-                  variant="outline"
-                  onClick={handleOnChangeStrokeWeight}
-                  data-op="decrease">
-                  -
-                </Button>
-              </ButtonGroup>
+              <p className="text-ring">Toggle subtitle visibility</p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+          <Switch
+            onCheckedChange={handleOnChangeVisibility}
+            checked={state.showSubtitles}
+          />
+        </div>
+
+        <Separator />
+
+        <div className="flex flex-col">
+          <div className="mb-3 flex items-center gap-3">
+            <div className="rounded-xl bg-secondary p-2">
+              <Type className="h-4 w-4 text-secondary-foreground" />
+            </div>
+
+            <p className="text-md font-medium">Typography</p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <div className="flex w-full items-center justify-between">
+              <p>Font size</p>
+              <p>{`${state.text.size}px`}</p>
+            </div>
+            <Slider
+              defaultValue={[state.text.size]}
+              onValueCommit={handleOnChangeFontSize}
+              max={50}
+              min={14}
+              step={1}
+            />
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-secondary p-2">
+              <Palette className="h-4 w-4 text-secondary-foreground" />
+            </div>
+
+            <p className="text-md font-medium">Styling</p>
+          </div>
+
+          <div className="flex items-center justify-between gap-8">
+            <p>Background</p>
+
+            <HoverCard>
+              <HoverCardTrigger>
+                <div
+                  className="h-6 w-20 rounded-md"
+                  style={{
+                    backgroundColor: toStyleSheetSupportedColorFormat(
+                      state.text.backgroundColor
+                    ),
+                    border: "0.5px solid gray"
+                  }}></div>
+              </HoverCardTrigger>
+              <HoverCardContent side="bottom" align="start">
+                <Colorful
+                  color={state.text.backgroundColor}
+                  onChange={handleOnChangeBackgroundColor}
+                />
+              </HoverCardContent>
+            </HoverCard>
+          </div>
+
+          <div className="flex items-center justify-between gap-8">
+            <p>Text color</p>
+            <HoverCard>
+              <HoverCardTrigger>
+                <div
+                  className="h-6 w-20 rounded-md"
+                  style={{
+                    backgroundColor: toStyleSheetSupportedColorFormat(
+                      state.text.color
+                    ),
+                    border: "0.5px solid gray"
+                  }}></div>
+              </HoverCardTrigger>
+              <HoverCardContent side="bottom" align="start">
+                <Colorful
+                  color={state.text.color}
+                  onChange={handleOnChangeTextColor}
+                />
+              </HoverCardContent>
+            </HoverCard>
+          </div>
+
+          <div className="flex items-center justify-between gap-8">
+            <p>Text Stroke color</p>
+            <HoverCard>
+              <HoverCardTrigger>
+                <div
+                  className="h-6 w-20 rounded-md"
+                  style={{
+                    backgroundColor: toStyleSheetSupportedColorFormat(
+                      state.text.strokeColor
+                    ),
+                    border: "0.5px solid gray"
+                  }}></div>
+              </HoverCardTrigger>
+              <HoverCardContent side="bottom" align="start">
+                <Colorful
+                  color={state.text.strokeColor}
+                  onChange={handleOnChangeTextStrokeColor}
+                />
+              </HoverCardContent>
+            </HoverCard>
+          </div>
+
+          <div className="mt-2 flex flex-col">
+            <div className="flex flex-col gap-2">
+              <div className="flex w-full items-center justify-between">
+                <p>Stroke Weight</p>
+                <p>{`${state.text.strokeWeight}px`}</p>
+              </div>
+              <Slider
+                defaultValue={[state.text.strokeWeight]}
+                onValueCommit={handleOnChangeStrokeWeight}
+                max={2}
+                min={0}
+                step={0.1}
+              />
+            </div>
+          </div>
+        </div>
+        <Separator />
+
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-secondary p-2">
+              <Crop className="h-4 w-4 text-secondary-foreground" />
+            </div>
+
+            <p className="text-md font-medium">Position</p>
+          </div>
+
+          <div className="flex justify-between gap-4">
+            <div className="flex flex-col gap-2">
+              <p>{`Horizontal (x-axis)`}</p>
+              <InputGroup>
+                <Button variant="outline">
+                  <Plus />
+                </Button>
+                <Input
+                  className="text-center"
+                  defaultValue={state.position.x}
+                />
+                <Button variant="outline">
+                  <Minus />
+                </Button>
+              </InputGroup>
+            </div>
+            <div className="flex flex-col gap-2">
+              <p>{`Vertical (y-axis)`}</p>
+              <InputGroup>
+                <Button variant="outline">
+                  <Plus />
+                </Button>
+                <Input
+                  className="text-center"
+                  defaultValue={state.position.y}
+                />
+                <Button variant="outline">
+                  <Minus />
+                </Button>
+              </InputGroup>
+            </div>
+          </div>
+        </div>
     </section>
   )
 }

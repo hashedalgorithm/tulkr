@@ -41,10 +41,8 @@ type SubtitleContextReducerStateActions =
       showSubtitle: boolean
     }
   | {
-      type: "increase-fontsize"
-    }
-  | {
-      type: "decrease-fontsize"
+      type: "update-fontsize"
+      size: number
     }
   | {
       type: "update-text-color"
@@ -55,10 +53,8 @@ type SubtitleContextReducerStateActions =
       color: HsvaColor
     }
   | {
-      type: "increase-stroke-weight"
-    }
-  | {
-      type: "decrease-stroke-weight"
+      type: "update-stroke-weight"
+      weight: number
     }
   | {
       type: "add-session"
@@ -158,22 +154,12 @@ const reducer = (
         ...prevstate,
         showSubtitles: actions.showSubtitle
       }
-    case "decrease-fontsize":
-      if (prevstate.text.size === 14) return prevstate
+    case "update-fontsize":
       return {
         ...prevstate,
         text: {
           ...prevstate.text,
-          size: prevstate.text.size - 1
-        }
-      }
-    case "increase-fontsize":
-      if (prevstate.text.size === 50) return prevstate
-      return {
-        ...prevstate,
-        text: {
-          ...prevstate.text,
-          size: prevstate.text.size + 1
+          size: actions.size
         }
       }
     case "update-bg-color":
@@ -192,28 +178,15 @@ const reducer = (
           strokeColor: actions.color
         }
       }
-    case "increase-stroke-weight":
-      if (prevstate.text.strokeWeight === 5) return prevstate
+    case "update-stroke-weight":
       return {
         ...prevstate,
         text: {
           ...prevstate.text,
-          strokeWeight: parseFloat(
-            (prevstate.text.strokeWeight + 0.1).toPrecision(2)
-          )
+          strokeWeight: actions.weight
         }
       }
-    case "decrease-stroke-weight":
-      if (prevstate.text.strokeWeight === 0) return prevstate
-      return {
-        ...prevstate,
-        text: {
-          ...prevstate.text,
-          strokeWeight: parseFloat(
-            (prevstate.text.strokeWeight - 0.1).toPrecision(2)
-          )
-        }
-      }
+
     case "update-text-color":
       return {
         ...prevstate,
