@@ -15,6 +15,7 @@ import {
   type TWORKER_PAYLOAD_RES_GET_ACTIVE_SESSIONS,
   type TWORKER_PAYLOAD_RES_GET_TABID,
   type TWORKER_PAYLOAD_RES_INIT,
+  type TWORKER_PAYLOAD_RES_UPDATE,
   type TWorkerMessageActions
 } from "@/lib/message"
 import ExtensionLocalStorage, {
@@ -120,7 +121,10 @@ const onMessageListner = async (
 
         const resp = await indexdb.getAll()
 
-        sendResponse({
+        await sendMessageInRuntime<
+          TWorkerMessageActions,
+          TWORKER_PAYLOAD_RES_GET_ACTIVE_SESSIONS
+        >({
           type: "res:session:get-active-sessions",
           from: "worker",
           to: "popup",
@@ -162,7 +166,10 @@ const onMessageListner = async (
           sessionLastUpdatedAt: new Date().toISOString()
         })
 
-        sendResponse({
+        await sendMessageInRuntime<
+          TWorkerMessageActions,
+          TWORKER_PAYLOAD_RES_UPDATE
+        >({
           type: "res:session:update",
           from: "worker",
           to: "popup",
@@ -184,7 +191,7 @@ const onMessageListner = async (
 function main() {
   indexdb.status
     .then((status) => {
-      if (status !== "ready") return
+      if (status !== "ready") throw new Error("Db is not ready")
 
       chrome.runtime.onMessage.addListener(onMessageListner)
       storage.set(STORAGE_KEY_IS_WORKER_ACTIVE, true)

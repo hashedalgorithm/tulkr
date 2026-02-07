@@ -239,19 +239,23 @@ const reducer = (
         }
       }
     case "update-session":
+      const updatedSession = {
+        ...prevstate.sessions[actions.session.sessionId],
+        ...actions.session
+      }
       return {
         ...prevstate,
         sessions: {
           ...prevstate.sessions,
-          [actions.session.sessionId]: actions.session
+          [actions.session.sessionId]: { ...updatedSession }
         }
       }
     case "remove-session": {
-      const sessions = prevstate.sessions
-      delete sessions?.[actions.sessionId]
+      const { [actions.sessionId]: _, ...rest } = prevstate.sessions
+
       return {
         ...prevstate,
-        sessions
+        sessions: rest
       }
     }
     default:
