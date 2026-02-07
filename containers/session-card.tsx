@@ -65,7 +65,7 @@ const SessionCard = ({
   }
 
   return (
-    <div className="flex w-80 flex-col rounded-md border border-secondary px-4 py-3">
+    <div className="flex w-full flex-col rounded-md border border-secondary px-4 py-3">
       <div className="flex items-center justify-between gap-8">
         <div className="flex items-center gap-3">
           <img src={tabFaviconUrl} className="h-12 w-12 rounded-full" />

@@ -21,7 +21,7 @@ const Sessions = () => {
   }
 
   return (
-    <div className="flex flex-col gap-4 px-10 py-8">
+    <div className="flex w-96 flex-col gap-4 px-4 py-8">
       <Header />
       <Separator className="w-4/5" />
       <Tabs
