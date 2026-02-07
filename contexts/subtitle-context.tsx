@@ -73,10 +73,6 @@ type SubtitleContextReducerStateActions =
       sessionId: string
     }
   | {
-      type: "update-session-status"
-      status: TSessionStatus
-    }
-  | {
       type: "set-selected-tab"
       tabId: number | undefined
     }
