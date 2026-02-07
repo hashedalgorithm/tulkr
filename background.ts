@@ -55,6 +55,7 @@ const onMessageListner = async (
           sessionLastUpdatedAt: new Date().toISOString(),
           sessionCreatedAt: new Date().toISOString(),
           sessionStatus: "active",
+          delay: 0,
           ...payload
         } satisfies TSession
 
@@ -159,10 +160,10 @@ const onMessageListner = async (
 
         const payload = message.payload as TPOPUP_PAYLOAD_REQ_UPDATE
 
+        if (!payload.sessionId) return
+
         const updated = await indexdb.updateMultiple(payload.sessionId, {
-          fileName: payload.fileName,
-          fileRawText: payload.fileRawText,
-          fileSize: payload.fileSize,
+          ...payload,
           sessionLastUpdatedAt: new Date().toISOString()
         })
 

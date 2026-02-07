@@ -46,9 +46,16 @@ export type TPOPUP_PAYLOAD_REQ_INIT = Pick<
   | "fileName"
   | "fileSize"
 >
-export type TPOPUP_PAYLOAD_REQ_UPDATE = Pick<
-  TSession,
-  "fileRawText" | "fileName" | "fileSize" | "sessionId"
+export type TPOPUP_PAYLOAD_REQ_UPDATE = Partial<
+  Pick<
+    TSession,
+    | "fileRawText"
+    | "fileName"
+    | "fileSize"
+    | "sessionId"
+    | "delay"
+    | "sessionStatus"
+  >
 >
 export type TPOPUP_PAYLOAD_REQ_END = Pick<TSession, "tabId" | "sessionId">
 

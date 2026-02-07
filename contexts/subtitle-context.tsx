@@ -76,6 +76,10 @@ type SubtitleContextReducerStateActions =
       type: "update-session-status"
       status: TSessionStatus
     }
+  | {
+      type: "set-selected-tab"
+      tabId: number | undefined
+    }
 
 type SubtitleContextProps = PropsWithChildren
 type SubtitleContextState = {
@@ -97,6 +101,7 @@ export type SubtitleContextReducerState = {
     strokeWeight?: number
     strokeColor?: HsvaColor
   }
+  selectedTab?: number
   isWorkerReady: boolean
 }
 
@@ -231,6 +236,11 @@ const reducer = (
         sessions: rest
       }
     }
+    case "set-selected-tab":
+      return {
+        ...prevstate,
+        selectedTab: actions.tabId
+      }
     default:
       return prevstate
   }
@@ -326,7 +336,10 @@ const SubtitleContext = ({ children }: SubtitleContextProps) => {
     if (isLocalStorageLoading) return
 
     chrome.storage.local.set({
-      [STORAGE_KEY_CONFIG]: omit(state, "isWorkerReady")
+      [STORAGE_KEY_CONFIG]: omit(state, [
+        "isWorkerReady",
+        "selectedTab"
+      ] satisfies (keyof SubtitleContextReducerState)[])
     })
   }, [state, isLocalStorageLoading])
 

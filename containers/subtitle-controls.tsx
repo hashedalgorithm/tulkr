@@ -1,21 +1,46 @@
 import { Button } from "@/components/ui/button"
-import { ButtonGroup } from "@/components/ui/button-group"
-import { Card, CardContent } from "@/components/ui/card"
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger
 } from "@/components/ui/hover-card"
+import { Input } from "@/components/ui/input"
+import { InputGroup } from "@/components/ui/input-group"
 import { Separator } from "@/components/ui/separator"
+import { Slider } from "@/components/ui/slider"
+import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
 import { useSubtitleContext } from "@/contexts/subtitle-context"
+import {
+  sendMessageInRuntime,
+  type TPOPUP_PAYLOAD_REQ_UPDATE,
+  type TPopupMessageActions
+} from "@/lib/message"
+import { toStyleSheetSupportedColorFormat } from "@/lib/utils"
+import type { TSession } from "@/types"
 import { Colorful, type ColorResult } from "@uiw/react-color"
-import { type MouseEventHandler } from "react"
-
-import { toStyleSheetSupportedColorFormat } from "~lib/utils"
+import {
+  Crop,
+  Eye,
+  Minus,
+  Palette,
+  Plus,
+  Settings,
+  Type,
+  Zap
+} from "lucide-react"
+import { useMemo } from "react"
 
 const SubtitleControls = () => {
   const { state, dispatch } = useSubtitleContext()
+
+  const selectedTab = useMemo<TSession | undefined>(() => {
+    if (!state?.selectedTab) return
+
+    return Object.values(state.sessions).find(
+      (session) => session.tabId === state.selectedTab
+    )
+  }, [state.selectedTab, state.sessions])
 
   const handleOnChangeVisibility = (value: boolean) => {
     dispatch({
@@ -67,6 +92,24 @@ const SubtitleControls = () => {
       type: "update-stroke-weight",
       weight
     })
+  }
+
+  const handleOnChangeDelay = async (value: number[]) => {
+    const delay = value.at(0)
+
+    if (!delay) return
+
+    await sendMessageInRuntime<TPopupMessageActions, TPOPUP_PAYLOAD_REQ_UPDATE>(
+      {
+        type: "req:session:update",
+        from: "popup",
+        to: "worker",
+        payload: {
+          sessionId: selectedTab.sessionId,
+          delay
+        }
+      }
+    )
   }
 
   if (!state.isWorkerReady)
@@ -266,6 +309,39 @@ const SubtitleControls = () => {
             </div>
           </div>
         </div>
+
+        {selectedTab && (
+          <>
+            <Separator />
+            <div className="flex flex-col">
+              <div className="mb-3 flex items-center gap-3">
+                <div className="rounded-xl bg-secondary p-2">
+                  <Zap className="h-4 w-4 text-secondary-foreground" />
+                </div>
+
+                <p className="text-md font-medium">Synchronization</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex flex-col gap-2">
+                  <div className="flex w-full items-center justify-between">
+                    <p>Delay</p>
+                    <p>{`${selectedTab.delay}s`}</p>
+                  </div>
+                  <Slider
+                    defaultValue={[selectedTab.delay]}
+                    onValueCommit={handleOnChangeDelay}
+                    max={5}
+                    min={-5}
+                    step={0.5}
+                  />
+                </div>
+
+                <Input defaultValue={selectedTab.delay} />
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </section>
   )
 }

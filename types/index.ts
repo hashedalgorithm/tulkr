@@ -18,6 +18,7 @@ export type TSession = {
   tabTitle: string
   tabFaviconUrl: string
   tabUrl: string
+  delay: number
 }
 
 export type TTargetTab = Pick<

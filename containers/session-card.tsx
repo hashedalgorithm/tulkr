@@ -2,11 +2,14 @@ import FileUploader, { type FileUploaderHandle } from "@/components/file-upload"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"
+import { useSubtitleContext } from "@/contexts/subtitle-context"
 import {
   sendMessageInRuntime,
+  type TPOPUP_PAYLOAD_REQ_END,
   type TPOPUP_PAYLOAD_REQ_UPDATE,
   type TPopupMessageActions
 } from "@/lib/message"
+import { cn } from "@/lib/utils"
 import type { TSession } from "@/types"
 import { startCase, truncate } from "lodash"
 import { Edit, Trash } from "lucide-react"
@@ -20,6 +23,7 @@ type SessionCardProps = Pick<
   | "tabTitle"
   | "tabId"
   | "sessionStatus"
+  | "delay"
 >
 
 const SessionCard = ({
@@ -28,9 +32,11 @@ const SessionCard = ({
   fileName,
   tabId,
   sessionId,
-  sessionStatus
+  sessionStatus,
+  delay
 }: SessionCardProps) => {
   const fileUploaderRef = useRef<FileUploaderHandle>(null)
+  const { state, dispatch } = useSubtitleContext()
 
   const handleOnChangeFileInput: ChangeEventHandler<HTMLInputElement> = async (
     e
@@ -64,15 +70,76 @@ const SessionCard = ({
     fileUploaderRef.current?.triggerClick()
   }
 
+  const handleOnClickDelete: MouseEventHandler<HTMLButtonElement> = async (
+    e
+  ) => {
+    e.stopPropagation()
+    if (!tabId || !sessionId) return
+
+    await sendMessageInRuntime<TPopupMessageActions, TPOPUP_PAYLOAD_REQ_END>({
+      type: "req:session:end",
+      from: "popup",
+      to: "worker",
+      payload: {
+        sessionId,
+        tabId
+      }
+    })
+    dispatch({
+      type: "remove-session",
+      sessionId
+    })
+  }
+
+  const handleOnClickCard: MouseEventHandler<HTMLDivElement> = () => {
+    dispatch({
+      type: "set-selected-tab",
+      tabId
+    })
+  }
+
   return (
-    <div className="flex w-full flex-col rounded-md border border-secondary px-4 py-3">
+    <div
+      className={cn(
+        "relative flex w-full cursor-pointer flex-col rounded-md border border-secondary px-4 py-5",
+        {
+          "border-primary": state.selectedTab === tabId
+        }
+      )}
+      onClick={handleOnClickCard}>
+      <Badge
+        className={cn("absolute right-4 top-4 w-fit px-1 py-1", {
+          "bg-emerald-500 text-primary-foreground hover:bg-emerald-500/80":
+            sessionStatus === "playing",
+          "bg-secondary text-secondary-foreground hover:bg-secondary":
+            sessionStatus === "active",
+          "bg-amber-500 text-secondary-foreground hover:bg-amber-500/80":
+            sessionStatus === "paused"
+        })}>
+        <p>{startCase(sessionStatus)}</p>
+      </Badge>
+
       <div className="flex items-center justify-between gap-8">
         <div className="flex items-center gap-3">
-          <img src={tabFaviconUrl} className="h-12 w-12 rounded-full" />
+          <div className="relative h-14 w-14 rounded-full">
+            <img
+              src={tabFaviconUrl}
+              className="h-full w-full rounded-full object-contain"
+            />
+            <Badge
+              className={cn("absolute -bottom-2 right-0 w-fit text-xs", {
+                "bg-destructive/45 text-destructive-foreground": delay > 0,
+                "bg-emerald-700/45 text-primary-foreground": delay < 0,
+                hidden: delay === 0
+              })}
+              variant="default">
+              {`${delay}s`}
+            </Badge>
+          </div>
           <div className="flex flex-col gap-0">
             <p className="text-md font-medium">
               {truncate(tabTitle, {
-                length: 23
+                length: 20
               })}
             </p>
             <p>
@@ -80,20 +147,17 @@ const SessionCard = ({
                 ? `${fileName.slice(0, 10)}...${fileName.slice(-5)}`
                 : fileName}
             </p>
-            <Badge className="mt-4 w-fit" variant="secondary">
-              {startCase(sessionStatus)}
-            </Badge>
           </div>
         </div>
 
-        <div className="flex">
+        <div className="flex justify-end self-end">
           <ButtonGroup>
             <FileUploader
               accept=".srt"
               ref={fileUploaderRef}
               onChange={handleOnChangeFileInput}>
               <Button
-                size="icon"
+                size="sm"
                 variant="ghost"
                 data-tab-id={tabId}
                 data-session-id={sessionId}
@@ -102,12 +166,7 @@ const SessionCard = ({
                 <Edit />
               </Button>
             </FileUploader>
-            <Button
-              size="icon"
-              variant="ghost"
-              data-tab-id={tabId}
-              data-session-id={sessionId}
-              data-op="delete">
+            <Button size="sm" variant="ghost" onClick={handleOnClickDelete}>
               <Trash />
             </Button>
           </ButtonGroup>
